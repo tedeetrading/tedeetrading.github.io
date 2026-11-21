@@ -107,7 +107,7 @@ function editable(el) {
 }
 
 const TABS = {
-  async Planning() {
+  async Planning(MODE = 'planning') {
     const [{ data: vids }, { data: sh }] = await Promise.all([
       sb.from('hub_videos').select('*').order('datum'), sb.from('hub_shorts').select('*').order('datum').order('tijd')]);
     const sep = (list, cols, render) => { let r = '', prev = null;
@@ -123,25 +123,25 @@ const TABS = {
     const scell = x => x ? `<td>${titleCell('hub_shorts', x)} ${badge(x.status)}<div class="muted" style="font-size:11px">status: <span data-t="hub_shorts" data-m="${esc(JSON.stringify({id:x.id}))}" data-f="status">${esc(x.status)}</span></div></td>` : '<td class="muted">—</td>';
     const sRows = sep(Object.keys(days).sort().map(d => ({ d, t: days[d] })), 5, ({ d, t }) =>
       `<tr class="${d===today?'today':''}"><td>${nlDatum(d)}${d===today?' (vandaag)':''}</td>${kanaalCell('short')}${scell(t['11:00'])}${scell(t['15:00'])}${scell(t['20:00'])}</tr>`);
-    $('#view').innerHTML = `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-        <h2 style="margin:0">Planning & shorts</h2><span class="spacer"></span>
-        <span class="muted">Alles schuiven:</span>
+    const bar = title => `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <h2 style="margin:0">${title}</h2><span class="spacer"></span>
+        <span class="muted">Alles schuiven (video's + shorts):</span>
         <button class="btn ghost" id="shiftMin">◀ 1 dag eerder</button>
-        <button class="btn ghost" id="shiftPlus">1 dag later ▶</button></div>
-      <div class="duo">
-        <div><h2>Planning lange video's (18:00 NL)</h2><table><tr><th>Datum</th><th>Kanaal</th><th>Video</th><th>Lengte</th><th>Status</th></tr>${vRows}</table></div>
-        <div><h2>Shorts — 3 per dag</h2><table><tr><th>Dag</th><th>Kanaal</th><th>11:00</th><th>15:00</th><th>20:00</th></tr>${sRows}</table></div>
-      </div>
-      <p class="muted">Titel met ↗ = staat op YouTube: klik om hem in Studio te openen. Status of YouTube-ID aanpassen: klik op de kleine tekst, typ, Enter. Schuiven verplaatst álle video's én shorts tegelijk; de structuur blijft gelijk.</p>`;
+        <button class="btn ghost" id="shiftPlus">1 dag later ▶</button></div>`;
+    const note = '<p class="muted">Titel met ↗ = staat op YouTube: klik om hem in Studio te openen. Status of YouTube-ID aanpassen: klik op de kleine tekst, typ, Enter.</p>';
+    $('#view').innerHTML = MODE === 'shorts'
+      ? bar('Shorts — 3 per dag') + `<table><tr><th>Dag</th><th>Kanaal</th><th>11:00</th><th>15:00</th><th>20:00</th></tr>${sRows}</table>` + note
+      : bar("Planning lange video's (18:00 NL)") + `<table><tr><th>Datum</th><th>Kanaal</th><th>Video</th><th>Lengte</th><th>Status</th></tr>${vRows}</table>` + note;
     const shift = async n => {
       const { error } = await sb.rpc('hub_shift', { dagen: n });
       toast(error ? 'Fout: ' + error.message : (n > 0 ? 'Alles 1 dag later' : 'Alles 1 dag eerder'));
-      if (!error) TABS.Planning();
+      if (!error) show();
     };
     $('#shiftMin').onclick = () => shift(-1);
     $('#shiftPlus').onclick = () => shift(1);
     editable($('#view'));
   },
+  async Shorts() { return TABS.Planning('shorts'); },
   async Shots() {
     const { data } = await sb.from('hub_shots').select('*').order('video').order('nr');
     const groups = {};
@@ -177,8 +177,8 @@ const TABS = {
 };
 
 function tabs(active) {
-  $('#tabs').innerHTML = Object.keys(TABS).map(k => `<button class="${k===active?'on':''}">${k==='Planning'?'Planning & shorts':k}</button>`).join('');
-  $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => { location.hash = b.textContent.startsWith('Planning') ? 'Planning' : b.textContent; show(); });
+  $('#tabs').innerHTML = Object.keys(TABS).map(k => `<button class="${k===active?'on':''}">${k}</button>`).join('');
+  $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => { location.hash = b.textContent; show(); });
 }
 async function show() {
   const t = decodeURIComponent(location.hash.slice(1)) || 'Planning';
