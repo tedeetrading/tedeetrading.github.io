@@ -77,7 +77,7 @@ const week = d => { const x = new Date(d+'T12:00:00'); x.setDate(x.getDate() - (
 const toast = t => { const e = $('#toast'); e.textContent = t; e.classList.add('show'); setTimeout(()=>e.classList.remove('show'), 1400); };
 
 async function save(table, match, field, value) {
-  const { error } = await sb.from(table).update({ [field]: value, ...(table!=='kosten'&&table!=='links' ? {updated_at:new Date().toISOString()} : {}) }).match(match);
+  const { error } = await sb.from(table).update({ [field]: value, ...(table!=='hub_kosten'&&table!=='hub_links' ? {updated_at:new Date().toISOString()} : {}) }).match(match);
   toast(error ? 'Fout: ' + error.message : 'Opgeslagen');
 }
 function editable(el) {
@@ -90,7 +90,7 @@ function editable(el) {
 
 const TABS = {
   async Planning() {
-    const { data } = await sb.from('videos').select('*').order('datum');
+    const { data } = await sb.from('hub_videos').select('*').order('datum');
     let rows = '', prev = null;
     for (const v of data || []) {
       const w = week(v.datum);
@@ -99,9 +99,9 @@ const TABS = {
       const big = v.soort !== 'song', m = esc(JSON.stringify({id:v.id}));
       rows += `<tr class="${v.datum===today?'today':''}">
         <td class="${v.datum===today?'b':''}">${nlDatum(v.datum)}${v.datum===today?' (vandaag)':''}</td>
-        <td class="${big?'b':''}" data-t="videos" data-m="${m}" data-f="titel">${esc(v.titel)}</td>
+        <td class="${big?'b':''}" data-t="hub_videos" data-m="${m}" data-f="titel">${esc(v.titel)}</td>
         <td>${esc(v.lengte)}</td>
-        <td data-t="videos" data-m="${m}" data-f="status">${esc(v.status)}</td></tr>`;
+        <td data-t="hub_videos" data-m="${m}" data-f="status">${esc(v.status)}</td></tr>`;
     }
     $('#view').innerHTML = `<h2>Planning lange video's (18:00 NL)</h2>
       <table><tr><th>Datum</th><th>Video</th><th>Lengte</th><th>Status</th></tr>${rows}</table>
@@ -109,7 +109,7 @@ const TABS = {
     editable($('#view'));
   },
   async Shots() {
-    const { data } = await sb.from('shots').select('*').order('video').order('nr');
+    const { data } = await sb.from('hub_shots').select('*').order('video').order('nr');
     const groups = {};
     (data||[]).forEach(s => (groups[s.video] ??= []).push(s));
     let html = '<h2>Shots per video</h2><p class="muted">Status: idee → foto → foto goedgekeurd → gefilmd → gecontroleerd → goedgekeurd</p>';
@@ -118,15 +118,15 @@ const TABS = {
       for (const s of list) {
         const m = esc(JSON.stringify({id:s.id}));
         html += `<tr><td class="b">${s.nr}</td><td>${esc(s.wat)}</td><td class="muted">${esc(s.clip || s.foto || '–')}</td>
-          <td data-t="shots" data-m="${m}" data-f="status">${esc(s.status)}</td>
-          <td data-t="shots" data-m="${m}" data-f="notitie">${esc(s.notitie)}</td></tr>`;
+          <td data-t="hub_shots" data-m="${m}" data-f="status">${esc(s.status)}</td>
+          <td data-t="hub_shots" data-m="${m}" data-f="notitie">${esc(s.notitie)}</td></tr>`;
       }
       html += '</table>';
     }
     $('#view').innerHTML = html; editable($('#view'));
   },
   async Shorts() {
-    const { data } = await sb.from('shorts').select('*').order('datum').order('tijd');
+    const { data } = await sb.from('hub_shorts').select('*').order('datum').order('tijd');
     const days = {};
     (data||[]).forEach(s => ((days[s.datum] ??= {})[s.tijd] = s));
     let rows = '', prev = null;
@@ -134,7 +134,7 @@ const TABS = {
       const w = week(d);
       if (prev && w !== prev) rows += '<tr class="sep"><td colspan="4"></td></tr>';
       prev = w;
-      const cell = x => x ? `<td data-t="shorts" data-m="${esc(JSON.stringify({id:x.id}))}" data-f="titel">${esc(x.titel)}</td>` : '<td class="muted">—</td>';
+      const cell = x => x ? `<td data-t="hub_shorts" data-m="${esc(JSON.stringify({id:x.id}))}" data-f="titel">${esc(x.titel)}</td>` : '<td class="muted">—</td>';
       rows += `<tr class="${d===today?'today':''}"><td>${nlDatum(d)}${d===today?' (vandaag)':''}</td>${cell(t['11:00'])}${cell(t['15:00'])}${cell(t['20:00'])}</tr>`;
     }
     $('#view').innerHTML = `<h2>Shorts — 3 per dag</h2>
@@ -142,9 +142,9 @@ const TABS = {
     editable($('#view'));
   },
   async 'Kosten & credits'() {
-    const [{ data: info }, { data: kost }] = await Promise.all([sb.from('info').select('*').order('key'), sb.from('kosten').select('*').order('datum',{ascending:false})]);
+    const [{ data: info }, { data: kost }] = await Promise.all([sb.from('hub_info').select('*').order('key'), sb.from('hub_kosten').select('*').order('datum',{ascending:false})]);
     const cards = (info||[]).map(i => `<div class="card"><div class="muted">${esc(i.key.replaceAll('_',' '))}</div>
-      <b data-t="info" data-m="${esc(JSON.stringify({key:i.key}))}" data-f="value">${esc(i.value)}</b></div>`).join('');
+      <b data-t="hub_info" data-m="${esc(JSON.stringify({key:i.key}))}" data-f="value">${esc(i.value)}</b></div>`).join('');
     const tot = (kost||[]).reduce((a,k)=>a+Number(k.bedrag),0);
     const rows = (kost||[]).map(k => `<tr><td>${nlDatum(k.datum)}</td><td>${esc(k.post)}</td><td>${esc(k.valuta)} ${Number(k.bedrag).toFixed(2)}</td><td class="muted">${esc(k.notitie)}</td></tr>`).join('');
     $('#view').innerHTML = `<h2>Credits & regels</h2><div class="grid">${cards}</div>
@@ -153,7 +153,7 @@ const TABS = {
     editable($('#view'));
   },
   async Links() {
-    const { data } = await sb.from('links').select('*').order('volgorde');
+    const { data } = await sb.from('hub_links').select('*').order('volgorde');
     $('#view').innerHTML = `<h2>Links</h2><div class="grid">${(data||[]).map(l => `<a class="card" href="${esc(l.url)}" target="_blank" rel="noopener"><b>${esc(l.naam)}</b><div class="muted">${esc(l.url)}</div></a>`).join('')}</div>`;
   },
 };
