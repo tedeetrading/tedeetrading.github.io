@@ -16,7 +16,9 @@
   nav button.on { color:#111; background:var(--sun); border-color:var(--sun); font-weight:600; }
   .spacer { flex:1; }
   .who { color:var(--dim); font-size:13px; }
-  main { max-width:1100px; margin:0 auto; padding:22px; }
+  .duo { display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start; }
+  @media (max-width:1100px){ .duo{grid-template-columns:1fr} }
+  main { max-width:1500px; margin:0 auto; padding:22px; }
   h2 { font-size:18px; margin:0 0 14px; color:var(--sun); font-weight:600; }
   table { width:100%; border-collapse:collapse; background:var(--card); border-radius:12px; overflow:hidden; }
   th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
@@ -99,30 +101,29 @@ const TABS = {
   async Planning() {
     const [{ data: vids }, { data: sh }] = await Promise.all([
       sb.from('hub_videos').select('*').order('datum'), sb.from('hub_shorts').select('*').order('datum').order('tijd')]);
-    const byDay = {};
-    (vids||[]).forEach(v => (byDay[v.datum] ??= { v: [], s: {} }).v.push(v));
-    (sh||[]).forEach(x => ((byDay[x.datum] ??= { v: [], s: {} }).s[x.tijd] = x));
-    const days = Object.keys(byDay).sort();
+    const sep = (list, cols, render) => { let r = '', prev = null;
+      for (const x of list) { const w = week(x.d); if (prev && w !== prev) r += `<tr class="sep"><td colspan="${cols}"></td></tr>`; prev = w; r += render(x); }
+      return r; };
+    const vRows = sep((vids||[]).map(v => ({ d: v.datum, v })), 4, ({ d, v }) => {
+      const m = esc(JSON.stringify({id:v.id})), big = v.soort !== 'song';
+      return `<tr class="${d===today?'today':''}"><td class="${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>
+        <td class="${big?'b':''}">${titleCell('hub_videos', v)}</td><td>${esc(v.lengte)}</td>
+        <td>${badge(v.status)}<div class="muted" style="font-size:11px"><span data-t="hub_videos" data-m="${m}" data-f="status">${esc(v.status)}</span></div></td></tr>`; });
+    const days = {};
+    (sh||[]).forEach(x => ((days[x.datum] ??= {})[x.tijd] = x));
     const scell = x => x ? `<td>${titleCell('hub_shorts', x)} ${badge(x.status)}<div class="muted" style="font-size:11px">status: <span data-t="hub_shorts" data-m="${esc(JSON.stringify({id:x.id}))}" data-f="status">${esc(x.status)}</span></div></td>` : '<td class="muted">—</td>';
-    let rows = '', prev = null;
-    for (const d of days) {
-      const w = week(d);
-      if (prev && w !== prev) rows += '<tr class="sep"><td colspan="7"></td></tr>';
-      prev = w;
-      const { v, s } = byDay[d], first = v[0];
-      const vt = first ? (() => { const m = esc(JSON.stringify({id:first.id})), big = first.soort !== 'song';
-        return `<td class="${big?'b':''}">${titleCell('hub_videos', first)}</td><td>${esc(first.lengte)}</td>
-          <td>${badge(first.status)}<div class="muted" style="font-size:11px"><span data-t="hub_videos" data-m="${m}" data-f="status">${esc(first.status)}</span></div></td>`; })()
-        : '<td class="muted">—</td><td></td><td></td>';
-      rows += `<tr class="${d===today?'today':''}"><td class="${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>${vt}${scell(s['11:00'])}${scell(s['15:00'])}${scell(s['20:00'])}</tr>`;
-    }
+    const sRows = sep(Object.keys(days).sort().map(d => ({ d, t: days[d] })), 4, ({ d, t }) =>
+      `<tr class="${d===today?'today':''}"><td>${nlDatum(d)}${d===today?' (vandaag)':''}</td>${scell(t['11:00'])}${scell(t['15:00'])}${scell(t['20:00'])}</tr>`);
     $('#view').innerHTML = `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-        <h2 style="margin:0">Planning (18:00 NL) + shorts</h2><span class="spacer"></span>
-        <span class="muted">Hele planning schuiven:</span>
+        <h2 style="margin:0">Planning & shorts</h2><span class="spacer"></span>
+        <span class="muted">Alles schuiven:</span>
         <button class="btn ghost" id="shiftMin">◀ 1 dag eerder</button>
         <button class="btn ghost" id="shiftPlus">1 dag later ▶</button></div>
-      <div style="overflow-x:auto"><table><tr><th>Datum</th><th>Video</th><th>Lengte</th><th>Status</th><th>Short 11:00</th><th>Short 15:00</th><th>Short 20:00</th></tr>${rows}</table></div>
-      <p class="muted">Titel met ↗ = staat op YouTube: klik om hem in Studio te openen. Status of YouTube-ID aanpassen: klik op de kleine tekst, typ, Enter. Schuiven verplaatst álle video's én shorts tegelijk; de onderlinge structuur blijft gelijk.</p>`;
+      <div class="duo">
+        <div><h2>Planning lange video's (18:00 NL)</h2><table><tr><th>Datum</th><th>Video</th><th>Lengte</th><th>Status</th></tr>${vRows}</table></div>
+        <div><h2>Shorts — 3 per dag</h2><table><tr><th>Dag</th><th>11:00</th><th>15:00</th><th>20:00</th></tr>${sRows}</table></div>
+      </div>
+      <p class="muted">Titel met ↗ = staat op YouTube: klik om hem in Studio te openen. Status of YouTube-ID aanpassen: klik op de kleine tekst, typ, Enter. Schuiven verplaatst álle video's én shorts tegelijk; de structuur blijft gelijk.</p>`;
     const shift = async n => {
       const { error } = await sb.rpc('hub_shift', { dagen: n });
       toast(error ? 'Fout: ' + error.message : (n > 0 ? 'Alles 1 dag later' : 'Alles 1 dag eerder'));
@@ -167,7 +168,7 @@ const TABS = {
 };
 
 function tabs(active) {
-  $('#tabs').innerHTML = Object.keys(TABS).map(k => `<button class="${k===active?'on':''}">${k==='Planning'?'Planning + shorts':k}</button>`).join('');
+  $('#tabs').innerHTML = Object.keys(TABS).map(k => `<button class="${k===active?'on':''}">${k==='Planning'?'Planning & shorts':k}</button>`).join('');
   $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => { location.hash = b.textContent.startsWith('Planning') ? 'Planning' : b.textContent; show(); });
 }
 async function show() {
