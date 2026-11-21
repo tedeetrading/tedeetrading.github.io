@@ -126,11 +126,9 @@ const TABS = {
       return `<tr class="${d===today?'today':''}"><td class="${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>${kanaalCell(v.soort)}
         <td class="${big?'b':''}">${titleCell('hub_videos', v)}</td><td>${esc(v.lengte)}</td>
         <td>${statusTag('hub_videos', v)}</td></tr>`; });
-    const days = {};
-    (sh||[]).forEach(x => ((days[x.datum] ??= {})[x.tijd] = x));
-    const scell = x => x ? `<td style="white-space:nowrap">${titleCell('hub_shorts', x)} ${statusTag('hub_shorts', x)}</td>` : '<td class="muted">—</td>';
-    const sRows = sep(Object.keys(days).sort().map(d => ({ d, t: days[d] })), 5, ({ d, t }) =>
-      `<tr class="${d===today?'today':''}"><td>${nlDatum(d)}${d===today?' (vandaag)':''}</td>${kanaalCell('short')}${scell(t['11:00'])}${scell(t['15:00'])}${scell(t['20:00'])}</tr>`);
+    const sRows = sep((sh||[]).map(x => ({ d: x.datum, x })), 5, ({ d, x }) =>
+      `<tr class="${d===today?'today':''}"><td class="${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>
+        <td>${esc(x.tijd)}</td>${kanaalCell('short')}<td>${titleCell('hub_shorts', x)}</td><td>${statusTag('hub_shorts', x)}</td></tr>`);
     const bar = title => `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
         <h2 style="margin:0">${title}</h2><span class="spacer"></span>
         <span class="muted">Alles schuiven (video's + shorts):</span>
@@ -138,7 +136,7 @@ const TABS = {
         <button class="btn ghost" id="shiftPlus">1 dag later ▶</button></div>`;
     const note = '<p class="muted">Titel met ↗ = staat op YouTube: klik om hem in Studio te openen. Status wijzigen: klik op het label, typ, Enter. YouTube-ID plakken: klik op +ID.</p>';
     $('#view').innerHTML = MODE === 'shorts'
-      ? bar('Shorts — 3 per dag') + `<table><tr><th>Dag</th><th>Kanaal</th><th>11:00</th><th>15:00</th><th>20:00</th></tr>${sRows}</table>` + note
+      ? bar('Shorts — 3 per dag') + `<table><tr><th>Datum</th><th>Tijd</th><th>Kanaal</th><th>Short</th><th>Status</th></tr>${sRows}</table>` + note
       : bar("Planning lange video's (18:00 NL)") + `<table><tr><th>Datum</th><th>Kanaal</th><th>Video</th><th>Lengte</th><th>Status</th></tr>${vRows}</table>` + note;
     const shift = async n => {
       const { error } = await sb.rpc('hub_shift', { dagen: n });
