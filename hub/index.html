@@ -51,7 +51,30 @@
   .idtag:empty::before { content: attr(data-ph); opacity:.5; }
   td { white-space:normal; }
   .pill { display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px; border:1px solid var(--line); color:var(--dim); }
-  @media (max-width:700px){ header{flex-wrap:wrap} nav{margin-left:0} th:nth-child(3),td:nth-child(3){display:none} }
+  @media (max-width:700px){
+    header { padding:10px 12px; gap:8px; flex-wrap:nowrap; }
+    .logo { font-size:15px; letter-spacing:.12em; }
+    nav { margin-left:4px; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; }
+    nav::-webkit-scrollbar { display:none; }
+    nav button { white-space:nowrap; padding:5px 10px; font-size:13px; }
+    .who, .spacer { display:none; }
+    main { padding:14px 10px; }
+    h2 { font-size:16px; }
+    .btn { padding:7px 10px; font-size:13px; }
+    table { background:none; }
+    table, tbody, tr, td { display:block; }
+    tr:has(th) { display:none; }
+    tr.sep { height:10px; }
+    tr:not(.sep) { display:grid; grid-template-columns:1fr auto; grid-template-areas:"date status" "video video" "kanaal len";
+      gap:4px 10px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:8px; }
+    td { border:0; padding:0; }
+    .c-date { grid-area:date; color:var(--dim); font-size:13px; }
+    .c-status { grid-area:status; text-align:right; }
+    .c-video { grid-area:video; font-size:16px; }
+    .c-video a { font-size:17px; }
+    .c-kanaal { grid-area:kanaal; text-align:left !important; }
+    .c-len { grid-area:len; color:var(--dim); font-size:13px; text-align:right; }
+  }
 </style>
 </head>
 <body>
@@ -106,7 +129,7 @@ const ICON = {
   Facebook: '<svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8" fill="#1877F2"/><path d="M8.9 13V8.6h1.5l.2-1.7H8.9V5.8c0-.5.2-.8.8-.8h.9V3.5c-.2 0-.7-.1-1.3-.1-1.3 0-2.2.8-2.2 2.2v1.3H5.6v1.7h1.5V13z" fill="#fff"/></svg>',
 };
 const kanalen = (soort) => soort === 'song' ? ['YouTube','Spotify','DistroKid'] : soort === 'short' ? ['YouTube','TikTok','Instagram','Facebook'] : ['YouTube'];
-const kanaalCell = soort => `<td class="kanaal"><span class="icons">${kanalen(soort).map(k => `<span title="${k}" class="ic">${ICON[k]}</span>`).join('')}</span></td>`;
+const kanaalCell = soort => `<td class="kanaal c-kanaal"><span class="icons">${kanalen(soort).map(k => `<span title="${k}" class="ic">${ICON[k]}</span>`).join('')}</span></td>`;
 const toast = t => { const e = $('#toast'); e.textContent = t; e.classList.add('show'); setTimeout(()=>e.classList.remove('show'), 1400); };
 
 async function save(table, match, field, value) {
@@ -130,12 +153,12 @@ const TABS = {
       return r; };
     const vRows = sep((vids||[]).map(v => ({ d: v.datum, v })), 5, ({ d, v }) => {
       const m = esc(JSON.stringify({id:v.id})), big = v.soort !== 'song';
-      return `<tr class="${d===today?'today':''}"><td class="${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>${kanaalCell(v.soort)}
-        <td class="${big?'b':''}">${titleCell('hub_videos', v)}</td><td>${esc(v.lengte)}</td>
-        <td>${statusTag('hub_videos', v)}</td></tr>`; });
+      return `<tr class="${d===today?'today':''}"><td class="c-date ${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>${kanaalCell(v.soort)}
+        <td class="c-video ${big?'b':''}">${titleCell('hub_videos', v)}</td><td class="c-len">${esc(v.lengte)}</td>
+        <td class="c-status">${statusTag('hub_videos', v)}</td></tr>`; });
     const sRows = sep((sh||[]).map(x => ({ d: x.datum, x })), 5, ({ d, x }) =>
-      `<tr class="${d===today?'today':''}"><td class="${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>
-        <td>${esc(x.tijd)}</td>${kanaalCell('short')}<td>${titleCell('hub_shorts', x)}</td><td>${statusTag('hub_shorts', x)}</td></tr>`);
+      `<tr class="${d===today?'today':''}"><td class="c-date ${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>
+        <td class="c-len">${esc(x.tijd)}</td>${kanaalCell('short')}<td class="c-video">${titleCell('hub_shorts', x)}</td><td class="c-status">${statusTag('hub_shorts', x)}</td></tr>`);
     const bar = title => `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
         <h2 style="margin:0">${title}</h2><span class="spacer"></span>
         <span class="muted">Alles schuiven (video's + shorts):</span>
