@@ -46,6 +46,10 @@
   .icons { display:inline-flex; align-items:center; gap:5px; }
   .ic { display:inline-flex; align-items:center; }
   .ic svg, .ic img { display:block; }
+  .c-more { display:none; }
+  .more { display:grid; gap:6px; padding-top:8px; margin-top:6px; border-top:1px solid var(--line); font-size:14px; }
+  .morebtns { display:flex; gap:8px; margin-top:4px; }
+  .morebtns .btn { text-decoration:none; font-size:13px; padding:8px 12px; }
   .pill.ok { color:#111; background:var(--sun); border-color:var(--sun); }
   .idtag { font-size:11px; color:var(--dim); margin-left:4px; }
   .idtag:empty::before { content: attr(data-ph); opacity:.5; }
@@ -67,8 +71,10 @@
     tr.today { background:#2a1f0d !important; border-color:var(--orange) !important; }
     tr.today td { background:none !important; }
     .shiftlbl { display:none; }
+    tr.open .c-more { display:block; grid-area:more; }
+    tr:not(.sep):not(.open)::after { content:''; }
     tr.sep { height:10px; }
-    tr:not(.sep) { display:grid; grid-template-columns:1fr auto; grid-template-areas:"date status" "video video" "kanaal len";
+    tr:not(.sep) { display:grid; grid-template-columns:1fr auto; grid-template-areas:"date status" "video video" "kanaal len" "more more"; cursor:pointer;
       gap:4px 10px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:8px; }
     td { border:0; padding:0; }
     .c-date { grid-area:date; color:var(--dim); font-size:13px; }
@@ -133,6 +139,17 @@ const ICON = {
 };
 const kanalen = (soort) => soort === 'song' ? ['YouTube','Spotify','DistroKid'] : soort === 'short' ? ['YouTube','TikTok','Instagram','Facebook'] : ['YouTube'];
 const kanaalCell = soort => `<td class="kanaal c-kanaal"><span class="icons">${kanalen(soort).map(k => `<span title="${k}" class="ic">${ICON[k]}</span>`).join('')}</span></td>`;
+const moreCell = (table, row, extra) => {
+  const m = esc(JSON.stringify({id:row.id})), id = row.youtube_id;
+  return `<td class="c-more"><div class="more">
+    <div><span class="muted">Kanaal:</span> ${extra.kanaal}</div>
+    <div><span class="muted">${extra.lenLabel}:</span> ${esc(extra.len)}</div>
+    <div><span class="muted">Status:</span> <span data-t="${table}" data-m="${m}" data-f="status">${esc(row.status||'')}</span></div>
+    <div><span class="muted">YouTube-ID:</span> <span data-t="${table}" data-m="${m}" data-f="youtube_id" data-ph="(plakken)" class="idtag">${esc(id||'')}</span></div>
+    <div><span class="muted">Notitie:</span> <span data-t="${table}" data-m="${m}" data-f="notitie" data-ph="(toevoegen)" class="idtag">${esc(row.notitie||'')}</span></div>
+    ${id ? `<div class="morebtns"><a class="btn" href="https://studio.youtube.com/video/${id}/edit" target="_blank" rel="noopener">Open in Studio</a> <a class="btn ghost" href="https://youtu.be/${id}" target="_blank" rel="noopener">Bekijk op YouTube</a></div>` : '<div class="muted">Nog niet op YouTube.</div>'}
+  </div></td>`;
+};
 const toast = t => { const e = $('#toast'); e.textContent = t; e.classList.add('show'); setTimeout(()=>e.classList.remove('show'), 1400); };
 
 async function save(table, match, field, value) {
@@ -158,10 +175,10 @@ const TABS = {
       const m = esc(JSON.stringify({id:v.id})), big = v.soort !== 'song';
       return `<tr class="${d===today?'today':''}"><td class="c-date ${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>${kanaalCell(v.soort)}
         <td class="c-video ${big?'b':''}">${titleCell('hub_videos', v)}</td><td class="c-len">${esc(v.lengte)}</td>
-        <td class="c-status">${statusTag('hub_videos', v)}</td></tr>`; });
+        <td class="c-status">${statusTag('hub_videos', v)}</td>${moreCell('hub_videos', v, {kanaal: kanalen(v.soort).join(', '), lenLabel:'Lengte', len: v.lengte})}</tr>`; });
     const sRows = sep((sh||[]).map(x => ({ d: x.datum, x })), 5, ({ d, x }) =>
       `<tr class="${d===today?'today':''}"><td class="c-date ${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>
-        <td class="c-len">${esc(x.tijd)}</td>${kanaalCell('short')}<td class="c-video">${titleCell('hub_shorts', x)}</td><td class="c-status">${statusTag('hub_shorts', x)}</td></tr>`);
+        <td class="c-len">${esc(x.tijd)}</td>${kanaalCell('short')}<td class="c-video">${titleCell('hub_shorts', x)}</td><td class="c-status">${statusTag('hub_shorts', x)}</td>${moreCell('hub_shorts', x, {kanaal: kanalen('short').join(', '), lenLabel:'Tijd', len: x.tijd})}</tr>`);
     const bar = title => `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
         <h2 style="margin:0">${title}</h2><span class="spacer"></span>
         <span class="muted shiftlbl">Alles schuiven (video's + shorts):</span>
@@ -171,6 +188,10 @@ const TABS = {
     $('#view').innerHTML = MODE === 'shorts'
       ? bar('Shorts — 3 per dag') + `<table><tr><th>Datum</th><th>Tijd</th><th style="text-align:center">Kanaal</th><th>Short</th><th>Status</th></tr>${sRows}</table>` + note
       : bar("Planning lange video's (18:00 NL)") + `<table><tr><th>Datum</th><th style="text-align:center">Kanaal</th><th>Video</th><th>Lengte</th><th>Status</th></tr>${vRows}</table>` + note;
+    $('#view').querySelectorAll('tr').forEach(tr => tr.addEventListener('click', e => {
+      if (e.target.closest('a,[contenteditable],button')) return;
+      if (window.matchMedia('(max-width:700px)').matches) tr.classList.toggle('open');
+    }));
     const shift = async n => {
       const { error } = await sb.rpc('hub_shift', { dagen: n });
       toast(error ? 'Fout: ' + error.message : (n > 0 ? 'Alles 1 dag later' : 'Alles 1 dag eerder'));
