@@ -97,22 +97,39 @@ function editable(el) {
 
 const TABS = {
   async Planning() {
-    const { data } = await sb.from('hub_videos').select('*').order('datum');
+    const [{ data: vids }, { data: sh }] = await Promise.all([
+      sb.from('hub_videos').select('*').order('datum'), sb.from('hub_shorts').select('*').order('datum').order('tijd')]);
+    const byDay = {};
+    (vids||[]).forEach(v => (byDay[v.datum] ??= { v: [], s: {} }).v.push(v));
+    (sh||[]).forEach(x => ((byDay[x.datum] ??= { v: [], s: {} }).s[x.tijd] = x));
+    const days = Object.keys(byDay).sort();
+    const scell = x => x ? `<td>${titleCell('hub_shorts', x)} ${badge(x.status)}<div class="muted" style="font-size:11px">status: <span data-t="hub_shorts" data-m="${esc(JSON.stringify({id:x.id}))}" data-f="status">${esc(x.status)}</span></div></td>` : '<td class="muted">—</td>';
     let rows = '', prev = null;
-    for (const v of data || []) {
-      const w = week(v.datum);
-      if (prev && w !== prev) rows += '<tr class="sep"><td colspan="4"></td></tr>';
+    for (const d of days) {
+      const w = week(d);
+      if (prev && w !== prev) rows += '<tr class="sep"><td colspan="7"></td></tr>';
       prev = w;
-      const big = v.soort !== 'song', m = esc(JSON.stringify({id:v.id}));
-      rows += `<tr class="${v.datum===today?'today':''}">
-        <td class="${v.datum===today?'b':''}">${nlDatum(v.datum)}${v.datum===today?' (vandaag)':''}</td>
-        <td class="${big?'b':''}">${titleCell('hub_videos', v)}</td>
-        <td>${esc(v.lengte)}</td>
-        <td>${badge(v.status)}<div class="muted" style="font-size:11px"><span data-t="hub_videos" data-m="${m}" data-f="status">${esc(v.status)}</span></div></td></tr>`;
+      const { v, s } = byDay[d], first = v[0];
+      const vt = first ? (() => { const m = esc(JSON.stringify({id:first.id})), big = first.soort !== 'song';
+        return `<td class="${big?'b':''}">${titleCell('hub_videos', first)}</td><td>${esc(first.lengte)}</td>
+          <td>${badge(first.status)}<div class="muted" style="font-size:11px"><span data-t="hub_videos" data-m="${m}" data-f="status">${esc(first.status)}</span></div></td>`; })()
+        : '<td class="muted">—</td><td></td><td></td>';
+      rows += `<tr class="${d===today?'today':''}"><td class="${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>${vt}${scell(s['11:00'])}${scell(s['15:00'])}${scell(s['20:00'])}</tr>`;
     }
-    $('#view').innerHTML = `<h2>Planning lange video's (18:00 NL)</h2>
-      <table><tr><th>Datum</th><th>Video</th><th>Lengte</th><th>Status</th></tr>${rows}</table>
-      <p class="muted">Titel met ↗ = klaar op YouTube: klik om de video in Studio te openen. Status of YouTube-ID aanpassen: klik op de kleine tekst, typ, Enter.</p>`;
+    $('#view').innerHTML = `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <h2 style="margin:0">Planning (18:00 NL) + shorts</h2><span class="spacer"></span>
+        <span class="muted">Hele planning schuiven:</span>
+        <button class="btn ghost" id="shiftMin">◀ 1 dag eerder</button>
+        <button class="btn ghost" id="shiftPlus">1 dag later ▶</button></div>
+      <div style="overflow-x:auto"><table><tr><th>Datum</th><th>Video</th><th>Lengte</th><th>Status</th><th>Short 11:00</th><th>Short 15:00</th><th>Short 20:00</th></tr>${rows}</table></div>
+      <p class="muted">Titel met ↗ = staat op YouTube: klik om hem in Studio te openen. Status of YouTube-ID aanpassen: klik op de kleine tekst, typ, Enter. Schuiven verplaatst álle video's én shorts tegelijk; de onderlinge structuur blijft gelijk.</p>`;
+    const shift = async n => {
+      const { error } = await sb.rpc('hub_shift', { dagen: n });
+      toast(error ? 'Fout: ' + error.message : (n > 0 ? 'Alles 1 dag later' : 'Alles 1 dag eerder'));
+      if (!error) TABS.Planning();
+    };
+    $('#shiftMin').onclick = () => shift(-1);
+    $('#shiftPlus').onclick = () => shift(1);
     editable($('#view'));
   },
   async Shots() {
@@ -132,22 +149,6 @@ const TABS = {
     }
     $('#view').innerHTML = html; editable($('#view'));
   },
-  async Shorts() {
-    const { data } = await sb.from('hub_shorts').select('*').order('datum').order('tijd');
-    const days = {};
-    (data||[]).forEach(s => ((days[s.datum] ??= {})[s.tijd] = s));
-    let rows = '', prev = null;
-    for (const [d, t] of Object.entries(days)) {
-      const w = week(d);
-      if (prev && w !== prev) rows += '<tr class="sep"><td colspan="4"></td></tr>';
-      prev = w;
-      const cell = x => x ? `<td>${titleCell('hub_shorts', x)} ${badge(x.status)}<div class="muted" style="font-size:11px">status: <span data-t="hub_shorts" data-m="${esc(JSON.stringify({id:x.id}))}" data-f="status">${esc(x.status)}</span></div></td>` : '<td class="muted">—</td>';
-      rows += `<tr class="${d===today?'today':''}"><td>${nlDatum(d)}${d===today?' (vandaag)':''}</td>${cell(t['11:00'])}${cell(t['15:00'])}${cell(t['20:00'])}</tr>`;
-    }
-    $('#view').innerHTML = `<h2>Shorts — 3 per dag</h2>
-      <table><tr><th>Dag</th><th>11:00</th><th>15:00</th><th>20:00</th></tr>${rows}</table>`;
-    editable($('#view'));
-  },
   async 'Kosten & credits'() {
     const [{ data: info }, { data: kost }] = await Promise.all([sb.from('hub_info').select('*').order('key'), sb.from('hub_kosten').select('*').order('datum',{ascending:false})]);
     const cards = (info||[]).map(i => `<div class="card"><div class="muted">${esc(i.key.replaceAll('_',' '))}</div>
@@ -166,8 +167,8 @@ const TABS = {
 };
 
 function tabs(active) {
-  $('#tabs').innerHTML = Object.keys(TABS).map(k => `<button class="${k===active?'on':''}">${k}</button>`).join('');
-  $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => { location.hash = b.textContent; show(); });
+  $('#tabs').innerHTML = Object.keys(TABS).map(k => `<button class="${k===active?'on':''}">${k==='Planning'?'Planning + shorts':k}</button>`).join('');
+  $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => { location.hash = b.textContent.startsWith('Planning') ? 'Planning' : b.textContent; show(); });
 }
 async function show() {
   const t = decodeURIComponent(location.hash.slice(1)) || 'Planning';
