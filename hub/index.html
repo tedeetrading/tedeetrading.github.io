@@ -47,6 +47,10 @@
   .ic { display:inline-flex; align-items:center; }
   .ic svg, .ic img { display:block; }
   .c-more { display:none; }
+  .selecting tr[data-id] { cursor:pointer; }
+  tr.sel td { background:#3a2a0a !important; }
+  tr.sel { outline:2px solid var(--sun); outline-offset:-2px; }
+  .btn:disabled { opacity:.45; cursor:default; }
   .more { display:grid; gap:6px; padding-top:8px; margin-top:6px; border-top:1px solid var(--line); font-size:14px; }
   .morebtns { display:flex; gap:8px; margin-top:4px; }
   .morebtns .btn { text-decoration:none; font-size:13px; padding:8px 12px; }
@@ -173,23 +177,45 @@ const TABS = {
       return r; };
     const vRows = sep((vids||[]).map(v => ({ d: v.datum, v })), 5, ({ d, v }) => {
       const m = esc(JSON.stringify({id:v.id})), big = v.soort !== 'song';
-      return `<tr class="${d===today?'today':''}"><td class="c-date ${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>${kanaalCell(v.soort)}
+      return `<tr data-id="${v.id}" class="${d===today?'today':''}"><td class="c-date ${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>${kanaalCell(v.soort)}
         <td class="c-video ${big?'b':''}">${titleCell('hub_videos', v)}</td><td class="c-len">${esc(v.lengte)}</td>
         <td class="c-status">${statusTag('hub_videos', v)}</td>${moreCell('hub_videos', v, {kanaal: kanalen(v.soort).join(', '), lenLabel:'Lengte', len: v.lengte})}</tr>`; });
     const sRows = sep((sh||[]).map(x => ({ d: x.datum, x })), 5, ({ d, x }) =>
-      `<tr class="${d===today?'today':''}"><td class="c-date ${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>
+      `<tr data-id="${x.id}" class="${d===today?'today':''}"><td class="c-date ${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>
         <td class="c-len">${esc(x.tijd)}</td>${kanaalCell('short')}<td class="c-video">${titleCell('hub_shorts', x)}</td><td class="c-status">${statusTag('hub_shorts', x)}</td>${moreCell('hub_shorts', x, {kanaal: kanalen('short').join(', '), lenLabel:'Tijd', len: x.tijd})}</tr>`);
     const bar = title => `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
         <h2 style="margin:0">${title}</h2><span class="spacer"></span>
         <span class="muted shiftlbl">Alles schuiven (video's + shorts):</span>
         <button class="btn ghost" id="shiftMin">◀ 1 dag eerder</button>
-        <button class="btn ghost" id="shiftPlus">1 dag later ▶</button></div>`;
+        <button class="btn ghost" id="shiftPlus">1 dag later ▶</button>
+        <button class="btn ghost" id="selBtn">Selecteren</button>
+        <button class="btn" id="swapBtn" hidden>Omwisselen (0/2)</button></div>`;
     const note = '<p class="muted">Titel met ↗ = staat op YouTube: klik om hem in Studio te openen. Status wijzigen: klik op het label, typ, Enter. YouTube-ID plakken: klik op +ID.</p>';
     $('#view').innerHTML = MODE === 'shorts'
       ? bar('Shorts — 3 per dag') + `<table><tr><th>Datum</th><th>Tijd</th><th style="text-align:center">Kanaal</th><th>Short</th><th>Status</th></tr>${sRows}</table>` + note
       : bar("Planning lange video's (18:00 NL)") + `<table><tr><th>Datum</th><th style="text-align:center">Kanaal</th><th>Video</th><th>Lengte</th><th>Status</th></tr>${vRows}</table>` + note;
-    $('#view').querySelectorAll('tr').forEach(tr => tr.addEventListener('click', e => {
+    let selecting = false, sel = [];
+    const tabel = MODE === 'shorts' ? 'hub_shorts' : 'hub_videos';
+    const upd = () => { $('#swapBtn').textContent = `Omwisselen (${sel.length}/2)`; $('#swapBtn').disabled = sel.length !== 2; };
+    $('#selBtn').onclick = () => {
+      selecting = !selecting; sel = [];
+      $('#view').querySelectorAll('tr.sel').forEach(t => t.classList.remove('sel'));
+      $('#selBtn').textContent = selecting ? 'Annuleren' : 'Selecteren';
+      $('#swapBtn').hidden = !selecting; $('#view').classList.toggle('selecting', selecting); upd();
+    };
+    $('#swapBtn').onclick = async () => {
+      if (sel.length !== 2) return;
+      const { error } = await sb.rpc('hub_swap', { tabel, a: +sel[0], b: +sel[1] });
+      toast(error ? 'Fout: ' + error.message : 'Omgewisseld'); if (!error) show();
+    };
+    $('#view').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', e => {
       if (e.target.closest('a,[contenteditable],button')) return;
+      if (selecting) {
+        const id = tr.dataset.id, i = sel.indexOf(id);
+        if (i >= 0) { sel.splice(i, 1); tr.classList.remove('sel'); }
+        else if (sel.length < 2) { sel.push(id); tr.classList.add('sel'); }
+        upd(); return;
+      }
       if (window.matchMedia('(max-width:700px)').matches) tr.classList.toggle('open');
     }));
     const shift = async n => {
