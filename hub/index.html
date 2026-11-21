@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>DAMSUNZ Hub</title>
+<style>
+  :root { --bg:#0b0b0b; --card:#151311; --line:#2a2622; --sun:#FFC42E; --orange:#FF8A1E; --txt:#FFF6E6; --dim:#a39a8e; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt); font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  header { display:flex; align-items:center; gap:14px; padding:16px 22px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--bg); z-index:2; }
+  .logo { font-weight:800; letter-spacing:.2em; background:linear-gradient(90deg,var(--sun),var(--orange)); -webkit-background-clip:text; color:transparent; font-size:18px; }
+  nav { display:flex; gap:6px; flex-wrap:wrap; margin-left:12px; }
+  nav button { background:none; border:1px solid var(--line); color:var(--dim); padding:6px 12px; border-radius:999px; cursor:pointer; font-size:14px; }
+  nav button.on { color:#111; background:var(--sun); border-color:var(--sun); font-weight:600; }
+  .spacer { flex:1; }
+  .who { color:var(--dim); font-size:13px; }
+  main { max-width:1100px; margin:0 auto; padding:22px; }
+  h2 { font-size:18px; margin:0 0 14px; color:var(--sun); font-weight:600; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border-radius:12px; overflow:hidden; }
+  th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--dim); font-weight:500; font-size:13px; }
+  tr.sep td { padding:0; height:6px; background:var(--bg); border:0; }
+  tr.today td { background:#2a1f0d; }
+  td.b { font-weight:700; }
+  [contenteditable] { outline:none; border-radius:6px; padding:2px 4px; margin:-2px -4px; }
+  [contenteditable]:hover { background:#221d17; }
+  [contenteditable]:focus { background:#2d2519; box-shadow:0 0 0 1px var(--orange); }
+  .muted { color:var(--dim); font-size:13px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .card b { color:var(--sun); }
+  a { color:var(--sun); }
+  #login { max-width:360px; margin:12vh auto; text-align:center; }
+  #login input { width:100%; padding:11px; margin:6px 0; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--txt); font-size:15px; }
+  .btn { background:var(--sun); color:#111; border:0; padding:10px 16px; border-radius:8px; font-weight:600; cursor:pointer; font-size:15px; }
+  .btn.ghost { background:none; color:var(--dim); border:1px solid var(--line); }
+  .toast { position:fixed; bottom:18px; right:18px; background:var(--card); border:1px solid var(--orange); padding:8px 14px; border-radius:8px; opacity:0; transition:opacity .2s; }
+  .toast.show { opacity:1; }
+  .pill { display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px; border:1px solid var(--line); color:var(--dim); }
+  @media (max-width:700px){ header{flex-wrap:wrap} nav{margin-left:0} th:nth-child(3),td:nth-child(3){display:none} }
+</style>
+</head>
+<body>
+<div id="login">
+  <div class="logo" style="font-size:28px">DAMSUNZ</div>
+  <p class="muted">Hub · alleen voor TD Trading</p>
+  <input id="em" type="email" placeholder="E-mail" autocomplete="username">
+  <input id="pw" type="password" placeholder="Wachtwoord" autocomplete="current-password">
+  <p><button class="btn" id="go">Inloggen</button> <button class="btn ghost" id="su">Account aanmaken</button></p>
+  <p class="muted" id="msg"></p>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <span class="logo">DAMSUNZ</span>
+    <nav id="tabs"></nav>
+    <span class="spacer"></span>
+    <span class="who" id="who"></span>
+    <button class="btn ghost" id="out" style="padding:5px 10px;font-size:13px">Uit</button>
+  </header>
+  <main id="view"></main>
+</div>
+<div class="toast" id="toast">Opgeslagen</div>
+
+<script type="module">
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = s => document.querySelector(s);
+const esc = s => (s ?? '').toString().replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const DAGEN = ['zo','ma','di','wo','do','vr','za'], MND = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+const today = new Date().toISOString().slice(0,10);
+const nlDatum = d => { const x = new Date(d+'T12:00:00'); return `${DAGEN[x.getDay()]} ${x.getDate()} ${MND[x.getMonth()]}`; };
+const week = d => { const x = new Date(d+'T12:00:00'); x.setDate(x.getDate() - ((x.getDay()+6)%7)); return x.toISOString().slice(0,10); };
+const toast = t => { const e = $('#toast'); e.textContent = t; e.classList.add('show'); setTimeout(()=>e.classList.remove('show'), 1400); };
+
+async function save(table, match, field, value) {
+  const { error } = await sb.from(table).update({ [field]: value, ...(table!=='kosten'&&table!=='links' ? {updated_at:new Date().toISOString()} : {}) }).match(match);
+  toast(error ? 'Fout: ' + error.message : 'Opgeslagen');
+}
+function editable(el) {
+  el.querySelectorAll('[data-t]').forEach(c => {
+    c.contentEditable = true;
+    c.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); c.blur(); } });
+    c.addEventListener('blur', () => save(c.dataset.t, JSON.parse(c.dataset.m), c.dataset.f, c.textContent.trim() || null));
+  });
+}
+
+const TABS = {
+  async Planning() {
+    const { data } = await sb.from('videos').select('*').order('datum');
+    let rows = '', prev = null;
+    for (const v of data || []) {
+      const w = week(v.datum);
+      if (prev && w !== prev) rows += '<tr class="sep"><td colspan="4"></td></tr>';
+      prev = w;
+      const big = v.soort !== 'song', m = esc(JSON.stringify({id:v.id}));
+      rows += `<tr class="${v.datum===today?'today':''}">
+        <td class="${v.datum===today?'b':''}">${nlDatum(v.datum)}${v.datum===today?' (vandaag)':''}</td>
+        <td class="${big?'b':''}" data-t="videos" data-m="${m}" data-f="titel">${esc(v.titel)}</td>
+        <td>${esc(v.lengte)}</td>
+        <td data-t="videos" data-m="${m}" data-f="status">${esc(v.status)}</td></tr>`;
+    }
+    $('#view').innerHTML = `<h2>Planning lange video's (18:00 NL)</h2>
+      <table><tr><th>Datum</th><th>Video</th><th>Lengte</th><th>Status</th></tr>${rows}</table>
+      <p class="muted">Klik op een titel of status om aan te passen. Enter = opslaan.</p>`;
+    editable($('#view'));
+  },
+  async Shots() {
+    const { data } = await sb.from('shots').select('*').order('video').order('nr');
+    const groups = {};
+    (data||[]).forEach(s => (groups[s.video] ??= []).push(s));
+    let html = '<h2>Shots per video</h2><p class="muted">Status: idee → foto → foto goedgekeurd → gefilmd → gecontroleerd → goedgekeurd</p>';
+    for (const [v, list] of Object.entries(groups)) {
+      html += `<h2 style="margin-top:22px;color:var(--txt)">${esc(v)}</h2><table><tr><th>Shot</th><th>Wat</th><th>Bestand</th><th>Status</th><th>Notitie</th></tr>`;
+      for (const s of list) {
+        const m = esc(JSON.stringify({id:s.id}));
+        html += `<tr><td class="b">${s.nr}</td><td>${esc(s.wat)}</td><td class="muted">${esc(s.clip || s.foto || '–')}</td>
+          <td data-t="shots" data-m="${m}" data-f="status">${esc(s.status)}</td>
+          <td data-t="shots" data-m="${m}" data-f="notitie">${esc(s.notitie)}</td></tr>`;
+      }
+      html += '</table>';
+    }
+    $('#view').innerHTML = html; editable($('#view'));
+  },
+  async Shorts() {
+    const { data } = await sb.from('shorts').select('*').order('datum').order('tijd');
+    const days = {};
+    (data||[]).forEach(s => ((days[s.datum] ??= {})[s.tijd] = s));
+    let rows = '', prev = null;
+    for (const [d, t] of Object.entries(days)) {
+      const w = week(d);
+      if (prev && w !== prev) rows += '<tr class="sep"><td colspan="4"></td></tr>';
+      prev = w;
+      const cell = x => x ? `<td data-t="shorts" data-m="${esc(JSON.stringify({id:x.id}))}" data-f="titel">${esc(x.titel)}</td>` : '<td class="muted">—</td>';
+      rows += `<tr class="${d===today?'today':''}"><td>${nlDatum(d)}${d===today?' (vandaag)':''}</td>${cell(t['11:00'])}${cell(t['15:00'])}${cell(t['20:00'])}</tr>`;
+    }
+    $('#view').innerHTML = `<h2>Shorts — 3 per dag</h2>
+      <table><tr><th>Dag</th><th>11:00</th><th>15:00</th><th>20:00</th></tr>${rows}</table>`;
+    editable($('#view'));
+  },
+  async 'Kosten & credits'() {
+    const [{ data: info }, { data: kost }] = await Promise.all([sb.from('info').select('*').order('key'), sb.from('kosten').select('*').order('datum',{ascending:false})]);
+    const cards = (info||[]).map(i => `<div class="card"><div class="muted">${esc(i.key.replaceAll('_',' '))}</div>
+      <b data-t="info" data-m="${esc(JSON.stringify({key:i.key}))}" data-f="value">${esc(i.value)}</b></div>`).join('');
+    const tot = (kost||[]).reduce((a,k)=>a+Number(k.bedrag),0);
+    const rows = (kost||[]).map(k => `<tr><td>${nlDatum(k.datum)}</td><td>${esc(k.post)}</td><td>${esc(k.valuta)} ${Number(k.bedrag).toFixed(2)}</td><td class="muted">${esc(k.notitie)}</td></tr>`).join('');
+    $('#view').innerHTML = `<h2>Credits & regels</h2><div class="grid">${cards}</div>
+      <h2 style="margin-top:24px">Kosten (pipeline) <span class="pill">totaal ${tot.toFixed(2)}</span></h2>
+      <table><tr><th>Datum</th><th>Post</th><th>Bedrag</th><th>Notitie</th></tr>${rows || '<tr><td colspan="4" class="muted">Nog geen kosten geboekt.</td></tr>'}</table>`;
+    editable($('#view'));
+  },
+  async Links() {
+    const { data } = await sb.from('links').select('*').order('volgorde');
+    $('#view').innerHTML = `<h2>Links</h2><div class="grid">${(data||[]).map(l => `<a class="card" href="${esc(l.url)}" target="_blank" rel="noopener"><b>${esc(l.naam)}</b><div class="muted">${esc(l.url)}</div></a>`).join('')}</div>`;
+  },
+};
+
+function tabs(active) {
+  $('#tabs').innerHTML = Object.keys(TABS).map(k => `<button class="${k===active?'on':''}">${k}</button>`).join('');
+  $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => { location.hash = b.textContent; show(); });
+}
+async function show() {
+  const t = decodeURIComponent(location.hash.slice(1)) || 'Planning';
+  const name = TABS[t] ? t : 'Planning';
+  tabs(name); $('#view').innerHTML = '<p class="muted">Laden…</p>';
+  try { await TABS[name](); } catch (e) { $('#view').innerHTML = '<p>Fout bij laden: ' + esc(e.message) + '</p>'; }
+}
+async function start() {
+  const { data: { session } } = await sb.auth.getSession();
+  $('#login').hidden = !!session; $('#app').hidden = !session;
+  if (session) { $('#who').textContent = session.user.email; show(); }
+}
+$('#go').onclick = async () => {
+  const { error } = await sb.auth.signInWithPassword({ email: $('#em').value, password: $('#pw').value });
+  $('#msg').textContent = error ? error.message : ''; start();
+};
+$('#su').onclick = async () => {
+  const { error } = await sb.auth.signUp({ email: $('#em').value, password: $('#pw').value, options: { emailRedirectTo: location.href.split('#')[0] } });
+  $('#msg').textContent = error ? error.message : 'Check je mail en klik op de bevestigingslink. Daarna inloggen.';
+};
+$('#out').onclick = async () => { await sb.auth.signOut(); start(); };
+window.addEventListener('hashchange', show);
+sb.auth.onAuthStateChange(() => start());
+start();
+</script>
+</body>
+</html>
