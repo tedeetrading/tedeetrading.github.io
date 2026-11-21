@@ -83,6 +83,15 @@ const titleCell = (table, row, field='titel') => {
   const t = row.youtube_id ? `<a href="${yt(row.youtube_id)}" target="_blank" rel="noopener">${esc(row[field])} ↗</a>` : esc(row[field]);
   return `${t}<div class="muted" style="font-size:11px">YouTube-ID: <span data-t="${table}" data-m="${m}" data-f="youtube_id">${esc(row.youtube_id||'')}</span></div>`;
 };
+const ICON = {
+  YouTube: '<svg width="22" height="16" viewBox="0 0 22 16"><rect width="22" height="16" rx="4" fill="#FF0033"/><path d="M9 4.5v7l6-3.5z" fill="#fff"/></svg>',
+  Spotify: '<svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8" fill="#1ED760"/><path d="M4 6.2c2.8-.9 5.6-.6 8 .7M4.5 8.6c2.3-.7 4.6-.4 6.6.6M5 10.8c1.8-.5 3.5-.3 5 .5" stroke="#111" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>',
+  TikTok: '<svg width="16" height="16" viewBox="0 0 16 16"><rect width="16" height="16" rx="4" fill="#111" stroke="#444"/><path d="M9 3v6.6a2 2 0 1 1-1.6-2" stroke="#25F4EE" stroke-width="1.6" fill="none"/><path d="M9 3c.3 1.4 1.3 2.3 2.8 2.4" stroke="#FE2C55" stroke-width="1.6" fill="none"/></svg>',
+  Instagram: '<svg width="16" height="16" viewBox="0 0 16 16"><defs><linearGradient id="ig" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FEDA75"/><stop offset=".5" stop-color="#D62976"/><stop offset="1" stop-color="#4F5BD5"/></linearGradient></defs><rect width="16" height="16" rx="4.5" fill="url(#ig)"/><rect x="3.5" y="3.5" width="9" height="9" rx="2.8" stroke="#fff" stroke-width="1.3" fill="none"/><circle cx="8" cy="8" r="2.1" stroke="#fff" stroke-width="1.3" fill="none"/></svg>',
+  Facebook: '<svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8" fill="#1877F2"/><path d="M8.9 13V8.6h1.5l.2-1.7H8.9V5.8c0-.5.2-.8.8-.8h.9V3.5c-.2 0-.7-.1-1.3-.1-1.3 0-2.2.8-2.2 2.2v1.3H5.6v1.7h1.5V13z" fill="#fff"/></svg>',
+};
+const kanalen = (soort) => soort === 'song' ? ['YouTube','Spotify'] : soort === 'short' ? ['YouTube','TikTok','Instagram','Facebook'] : ['YouTube'];
+const kanaalCell = soort => `<td style="white-space:nowrap">${kanalen(soort).map(k => `<span title="${k}" style="display:inline-block;margin-right:4px;vertical-align:middle">${ICON[k]}</span>`).join('')}</td>`;
 const toast = t => { const e = $('#toast'); e.textContent = t; e.classList.add('show'); setTimeout(()=>e.classList.remove('show'), 1400); };
 
 async function save(table, match, field, value) {
@@ -104,24 +113,24 @@ const TABS = {
     const sep = (list, cols, render) => { let r = '', prev = null;
       for (const x of list) { const w = week(x.d); if (prev && w !== prev) r += `<tr class="sep"><td colspan="${cols}"></td></tr>`; prev = w; r += render(x); }
       return r; };
-    const vRows = sep((vids||[]).map(v => ({ d: v.datum, v })), 4, ({ d, v }) => {
+    const vRows = sep((vids||[]).map(v => ({ d: v.datum, v })), 5, ({ d, v }) => {
       const m = esc(JSON.stringify({id:v.id})), big = v.soort !== 'song';
-      return `<tr class="${d===today?'today':''}"><td class="${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>
+      return `<tr class="${d===today?'today':''}"><td class="${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>${kanaalCell(v.soort)}
         <td class="${big?'b':''}">${titleCell('hub_videos', v)}</td><td>${esc(v.lengte)}</td>
         <td>${badge(v.status)}<div class="muted" style="font-size:11px"><span data-t="hub_videos" data-m="${m}" data-f="status">${esc(v.status)}</span></div></td></tr>`; });
     const days = {};
     (sh||[]).forEach(x => ((days[x.datum] ??= {})[x.tijd] = x));
     const scell = x => x ? `<td>${titleCell('hub_shorts', x)} ${badge(x.status)}<div class="muted" style="font-size:11px">status: <span data-t="hub_shorts" data-m="${esc(JSON.stringify({id:x.id}))}" data-f="status">${esc(x.status)}</span></div></td>` : '<td class="muted">—</td>';
-    const sRows = sep(Object.keys(days).sort().map(d => ({ d, t: days[d] })), 4, ({ d, t }) =>
-      `<tr class="${d===today?'today':''}"><td>${nlDatum(d)}${d===today?' (vandaag)':''}</td>${scell(t['11:00'])}${scell(t['15:00'])}${scell(t['20:00'])}</tr>`);
+    const sRows = sep(Object.keys(days).sort().map(d => ({ d, t: days[d] })), 5, ({ d, t }) =>
+      `<tr class="${d===today?'today':''}"><td>${nlDatum(d)}${d===today?' (vandaag)':''}</td>${kanaalCell('short')}${scell(t['11:00'])}${scell(t['15:00'])}${scell(t['20:00'])}</tr>`);
     $('#view').innerHTML = `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
         <h2 style="margin:0">Planning & shorts</h2><span class="spacer"></span>
         <span class="muted">Alles schuiven:</span>
         <button class="btn ghost" id="shiftMin">◀ 1 dag eerder</button>
         <button class="btn ghost" id="shiftPlus">1 dag later ▶</button></div>
       <div class="duo">
-        <div><h2>Planning lange video's (18:00 NL)</h2><table><tr><th>Datum</th><th>Video</th><th>Lengte</th><th>Status</th></tr>${vRows}</table></div>
-        <div><h2>Shorts — 3 per dag</h2><table><tr><th>Dag</th><th>11:00</th><th>15:00</th><th>20:00</th></tr>${sRows}</table></div>
+        <div><h2>Planning lange video's (18:00 NL)</h2><table><tr><th>Datum</th><th>Kanaal</th><th>Video</th><th>Lengte</th><th>Status</th></tr>${vRows}</table></div>
+        <div><h2>Shorts — 3 per dag</h2><table><tr><th>Dag</th><th>Kanaal</th><th>11:00</th><th>15:00</th><th>20:00</th></tr>${sRows}</table></div>
       </div>
       <p class="muted">Titel met ↗ = staat op YouTube: klik om hem in Studio te openen. Status of YouTube-ID aanpassen: klik op de kleine tekst, typ, Enter. Schuiven verplaatst álle video's én shorts tegelijk; de structuur blijft gelijk.</p>`;
     const shift = async n => {
