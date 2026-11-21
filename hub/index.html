@@ -63,7 +63,10 @@
     .btn { padding:7px 10px; font-size:13px; }
     table { background:none; }
     table, tbody, tr, td { display:block; }
-    tr:has(th) { display:none; }
+    tr:has(th) { display:none !important; }
+    tr.today { background:#2a1f0d !important; border-color:var(--orange) !important; }
+    tr.today td { background:none !important; }
+    .shiftlbl { display:none; }
     tr.sep { height:10px; }
     tr:not(.sep) { display:grid; grid-template-columns:1fr auto; grid-template-areas:"date status" "video video" "kanaal len";
       gap:4px 10px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:8px; }
@@ -161,7 +164,7 @@ const TABS = {
         <td class="c-len">${esc(x.tijd)}</td>${kanaalCell('short')}<td class="c-video">${titleCell('hub_shorts', x)}</td><td class="c-status">${statusTag('hub_shorts', x)}</td></tr>`);
     const bar = title => `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
         <h2 style="margin:0">${title}</h2><span class="spacer"></span>
-        <span class="muted">Alles schuiven (video's + shorts):</span>
+        <span class="muted shiftlbl">Alles schuiven (video's + shorts):</span>
         <button class="btn ghost" id="shiftMin">◀ 1 dag eerder</button>
         <button class="btn ghost" id="shiftPlus">1 dag later ▶</button></div>`;
     const note = '<p class="muted">Titel met ↗ = staat op YouTube: klik om hem in Studio te openen. Status wijzigen: klik op het label, typ, Enter. YouTube-ID plakken: klik op +ID.</p>';
