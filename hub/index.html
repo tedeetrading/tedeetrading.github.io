@@ -74,6 +74,13 @@ const DAGEN = ['zo','ma','di','wo','do','vr','za'], MND = ['jan','feb','mrt','ap
 const today = new Date().toISOString().slice(0,10);
 const nlDatum = d => { const x = new Date(d+'T12:00:00'); return `${DAGEN[x.getDay()]} ${x.getDate()} ${MND[x.getMonth()]}`; };
 const week = d => { const x = new Date(d+'T12:00:00'); x.setDate(x.getDate() - ((x.getDay()+6)%7)); return x.toISOString().slice(0,10); };
+const yt = id => id ? `https://studio.youtube.com/video/${id}/edit` : null;
+const badge = st => { const ok = /klaar|ingepland|live|✅/i.test(st||''); return `<span class="pill" style="${ok?'color:#111;background:var(--sun);border-color:var(--sun)':''}">${esc(st||'nog maken')}</span>`; };
+const titleCell = (table, row, field='titel') => {
+  const m = esc(JSON.stringify({id:row.id}));
+  const t = row.youtube_id ? `<a href="${yt(row.youtube_id)}" target="_blank" rel="noopener">${esc(row[field])} ↗</a>` : esc(row[field]);
+  return `${t}<div class="muted" style="font-size:11px">YouTube-ID: <span data-t="${table}" data-m="${m}" data-f="youtube_id">${esc(row.youtube_id||'')}</span></div>`;
+};
 const toast = t => { const e = $('#toast'); e.textContent = t; e.classList.add('show'); setTimeout(()=>e.classList.remove('show'), 1400); };
 
 async function save(table, match, field, value) {
@@ -99,13 +106,13 @@ const TABS = {
       const big = v.soort !== 'song', m = esc(JSON.stringify({id:v.id}));
       rows += `<tr class="${v.datum===today?'today':''}">
         <td class="${v.datum===today?'b':''}">${nlDatum(v.datum)}${v.datum===today?' (vandaag)':''}</td>
-        <td class="${big?'b':''}" data-t="hub_videos" data-m="${m}" data-f="titel">${esc(v.titel)}</td>
+        <td class="${big?'b':''}">${titleCell('hub_videos', v)}</td>
         <td>${esc(v.lengte)}</td>
-        <td data-t="hub_videos" data-m="${m}" data-f="status">${esc(v.status)}</td></tr>`;
+        <td>${badge(v.status)}<div class="muted" style="font-size:11px"><span data-t="hub_videos" data-m="${m}" data-f="status">${esc(v.status)}</span></div></td></tr>`;
     }
     $('#view').innerHTML = `<h2>Planning lange video's (18:00 NL)</h2>
       <table><tr><th>Datum</th><th>Video</th><th>Lengte</th><th>Status</th></tr>${rows}</table>
-      <p class="muted">Klik op een titel of status om aan te passen. Enter = opslaan.</p>`;
+      <p class="muted">Titel met ↗ = klaar op YouTube: klik om de video in Studio te openen. Status of YouTube-ID aanpassen: klik op de kleine tekst, typ, Enter.</p>`;
     editable($('#view'));
   },
   async Shots() {
@@ -134,7 +141,7 @@ const TABS = {
       const w = week(d);
       if (prev && w !== prev) rows += '<tr class="sep"><td colspan="4"></td></tr>';
       prev = w;
-      const cell = x => x ? `<td data-t="hub_shorts" data-m="${esc(JSON.stringify({id:x.id}))}" data-f="titel">${esc(x.titel)}</td>` : '<td class="muted">—</td>';
+      const cell = x => x ? `<td>${titleCell('hub_shorts', x)} ${badge(x.status)}<div class="muted" style="font-size:11px">status: <span data-t="hub_shorts" data-m="${esc(JSON.stringify({id:x.id}))}" data-f="status">${esc(x.status)}</span></div></td>` : '<td class="muted">—</td>';
       rows += `<tr class="${d===today?'today':''}"><td>${nlDatum(d)}${d===today?' (vandaag)':''}</td>${cell(t['11:00'])}${cell(t['15:00'])}${cell(t['20:00'])}</tr>`;
     }
     $('#view').innerHTML = `<h2>Shorts — 3 per dag</h2>
