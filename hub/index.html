@@ -104,6 +104,15 @@
   .kbar { height:8px; border-radius:8px; background:#2a2622; overflow:hidden; margin-top:8px; }
   .kbar i { display:block; height:100%; border-radius:8px; background:linear-gradient(90deg,var(--sun),var(--orange)); }
   @media (max-width:700px){ .kpis { grid-template-columns:1fr 1fr; } .kpi.wide { grid-column:1 / -1; } }
+  .todoadd { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  .todoadd input, .todoadd select { background:var(--card); border:1px solid var(--line); color:var(--txt); border-radius:8px; padding:10px 12px; font-size:15px; }
+  .todoadd input { flex:1; min-width:200px; }
+  .todos { display:grid; gap:8px; }
+  .todo { display:flex; align-items:flex-start; gap:12px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 14px; }
+  .todo input[type=checkbox] { width:22px; height:22px; accent-color:var(--sun); margin-top:2px; flex:none; cursor:pointer; }
+  .todo .tt { flex:1; min-width:0; display:grid; gap:4px; }
+  .todo.done .tt > div:first-child { text-decoration:line-through; color:var(--dim); }
+  .tdel { background:none; border:0; color:var(--dim); cursor:pointer; font-size:14px; }
   .songctl { display:inline-flex; gap:6px; align-items:center; margin-left:8px; vertical-align:middle; }
   .playbtn { width:30px; height:30px; border-radius:50%; border:none; background:var(--sun); color:#111; font-size:13px; cursor:pointer; padding:0; }
   .playbtn.on { background:#ff8a1e; }
@@ -386,6 +395,27 @@ const TABS = {
     $('#view').innerHTML = html || '<p class="muted">Nog geen doelen.</p>';
     editable($('#view'));
   },
+  async 'To-do'() {
+    const { data } = await sb.from('hub_todo').select('*').order('klaar').order('volgorde').order('id');
+    const rows = (data || []).map(t => { const m = esc(JSON.stringify({id:t.id}));
+      return `<div class="todo ${t.klaar ? 'done' : ''}"><input type="checkbox" data-id="${t.id}" ${t.klaar ? 'checked' : ''}>
+        <div class="tt"><div data-t="hub_todo" data-m="${m}" data-f="taak">${esc(t.taak)}</div>
+        <div class="muted"><span class="pill">${esc(t.wie || '')}</span> <span data-t="hub_todo" data-m="${m}" data-f="notitie" class="idtag" data-ph="(notitie)">${esc(t.notitie || '')}</span></div></div>
+        <button class="tdel" data-del="${t.id}" title="Verwijderen">✕</button></div>`; }).join('');
+    const open = (data || []).filter(t => !t.klaar).length;
+    $('#view').innerHTML = `<h2>To-do <span class="pill">${open} open</span></h2>
+      <div class="todoadd"><input id="newTask" placeholder="Nieuwe taak…"><select id="newWho"><option>Claude</option><option>Berend</option></select><button class="btn" id="addTask">Toevoegen</button></div>
+      <div class="todos">${rows || '<p class="muted">Niets te doen.</p>'}</div>`;
+    $('#view').querySelectorAll('input[type=checkbox]').forEach(c => c.onchange = async () => {
+      const { error } = await sb.from('hub_todo').update({ klaar: c.checked, updated_at: new Date().toISOString() }).eq('id', +c.dataset.id);
+      toast(error ? 'Fout: ' + error.message : (c.checked ? 'Afgevinkt' : 'Weer open')); if (!error) show(); });
+    $('#view').querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
+      const { error } = await sb.from('hub_todo').delete().eq('id', +b.dataset.del); toast(error ? 'Fout: ' + error.message : 'Verwijderd'); if (!error) show(); });
+    const add = async () => { const v = $('#newTask').value.trim(); if (!v) return;
+      const { error } = await sb.from('hub_todo').insert({ taak: v, wie: $('#newWho').value, volgorde: 99 }); toast(error ? 'Fout: ' + error.message : 'Toegevoegd'); if (!error) show(); };
+    $('#addTask').onclick = add; $('#newTask').onkeydown = e => { if (e.key === 'Enter') add(); };
+    editable($('#view'));
+  },
   async Shorts() { return TABS.Planning('shorts'); },
   async Shots() {
     const { data } = await sb.from('hub_shots').select('*').order('video').order('nr');
@@ -422,7 +452,7 @@ const TABS = {
 };
 
 function tabs(active) {
-  const order = [...Object.keys(TABS).filter(k => k !== 'Doelen'), 'Doelen'];
+  const order = [...Object.keys(TABS).filter(k => k !== 'Doelen' && k !== 'To-do'), 'Doelen', 'To-do'];
   $('#tabs').innerHTML = order.map(k => `<button class="${k===active?'on':''}">${k}</button>`).join('');
   $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => { location.hash = b.textContent; show(); });
 }
