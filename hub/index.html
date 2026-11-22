@@ -303,7 +303,8 @@ const TABS = {
 };
 
 function tabs(active) {
-  $('#tabs').innerHTML = Object.keys(TABS).map(k => `<button class="${k===active?'on':''}">${k}</button>`).join('');
+  const order = [...Object.keys(TABS).filter(k => k !== 'Doelen'), 'Doelen'];
+  $('#tabs').innerHTML = order.map(k => `<button class="${k===active?'on':''}">${k}</button>`).join('');
   $('#tabs').querySelectorAll('button').forEach(b => b.onclick = () => { location.hash = b.textContent; show(); });
 }
 async function show() {
