@@ -113,6 +113,11 @@
   .todo .tt { flex:1; min-width:0; display:grid; gap:4px; }
   .todo.done .tt > div:first-child { text-decoration:line-through; color:var(--dim); }
   .tdel { background:none; border:0; color:var(--dim); cursor:pointer; font-size:14px; }
+  .shufmob { display:none; }
+  @media (max-width:700px){ .shufmob { display:inline-block; } }
+  .shufbtn { position:absolute; right:10px; top:50%; transform:translateY(-50%); width:32px; height:32px; border-radius:50%; border:1px solid var(--line); background:none; color:var(--sun); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; padding:0; }
+  .shufbtn:hover { background:var(--sun); color:#111; border-color:var(--sun); }
+  .shufbtn svg { width:16px; height:16px; fill:currentColor; }
   .songctl { display:inline-flex; gap:6px; align-items:center; margin-left:8px; vertical-align:middle; }
   .playbtn { width:30px; height:30px; border-radius:50%; border:none; background:var(--sun); color:#111; font-size:13px; cursor:pointer; padding:0; }
   .playbtn.on { background:#ff8a1e; }
@@ -326,7 +331,7 @@ const TABS = {
         <button class="btn ghost" id="shiftMin">◀ 1 dag eerder</button>
         <button class="btn ghost" id="shiftPlus">1 dag later ▶</button>
         <button class="btn ghost" id="selBtn">Selecteren</button>
-        <button class="btn" id="swapBtn" hidden>Omwisselen (0/2)</button></div>`;
+        <button class="btn" id="swapBtn" hidden>Omwisselen (0/2)</button>${MODE === 'shorts' ? '' : '<button class="btn ghost shufmob" id="shufBtn2">Shuffle</button>'}</div>`;
     const isKlaar = st => /klaar|ingepland|live|✅/i.test(st||'');
     const kpi = (list, parts) => {
       const tot = list.length, ok = list.filter(x => isKlaar(x.status)).length, pct = tot ? Math.round(ok / tot * 100) : 0;
@@ -342,7 +347,7 @@ const TABS = {
     const note = '<p class="muted">Titel met ↗ = staat op YouTube: klik om hem in Studio te openen. Status wijzigen: klik op het label, typ, Enter. YouTube-ID plakken: klik op +ID.</p>';
     $('#view').innerHTML = MODE === 'shorts'
       ? bar('Shorts — 3 per dag') + kpiHtml + `<table><tr><th>Datum</th><th>Tijd</th><th style="text-align:center">Kanaal</th><th>Short</th><th>Status</th></tr>${sRows}</table>` + note
-      : bar("Planning lange video's (18:00 NL)") + kpiHtml + `<table><tr><th>Datum</th><th style="text-align:center">Kanaal</th><th>Video</th><th>Lengte</th><th>Status</th></tr>${vRows}</table>` + note;
+      : bar("Planning lange video's (18:00 NL)") + kpiHtml + `<table><tr><th>Datum</th><th style="text-align:center">Kanaal</th><th>Video</th><th>Lengte</th><th style="position:relative">Status<button class="shufbtn" id="shufBtn" title="Shuffle: alles in willekeurige volgorde afspelen"><svg viewBox="0 0 24 24"><path d="M17 3l4 4-4 4V8h-2.6l-2.9 3.9-1.25-1.67L13.4 6H17V3zM3 6h4.6l8.8 12H17v-3l4 4-4 4v-3h-3.6L5.6 8H3V6zm0 10h2.6l2.15-2.87L9 14.8 7.4 18H3v-2z"/></svg></button></th></tr>${vRows}</table>` + note;
     let selecting = false, sel = [];
     const tabel = MODE === 'shorts' ? 'hub_shorts' : 'hub_videos';
     const upd = () => { $('#swapBtn').textContent = `Omwisselen (${sel.length}/2)`; $('#swapBtn').disabled = sel.length !== 2; };
@@ -375,6 +380,12 @@ const TABS = {
     $('#shiftMin').onclick = () => shift(-1);
     $('#shiftPlus').onclick = () => shift(1);
     editable($('#view')); songHandlers($('#view'));
+    const shuffleAll = e => { e.stopPropagation();
+      const items = [...$('#view').querySelectorAll('.songctl .playbtn')].map(b => ({ audio: b.dataset.audio, title: b.dataset.title }));
+      if (!items.length) return toast('Nog niets om af te spelen');
+      for (let i = items.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [items[i], items[j]] = [items[j], items[i]]; }
+      queue.length = 0; queue.push(...items.slice(1)); playItem(items[0]); toast('Shuffle: ' + items.length + ' nummers'); };
+    ['#shufBtn', '#shufBtn2'].forEach(id => { const b = $(id); if (b) b.onclick = shuffleAll; });
   },
   async Doelen() {
     const { data } = await sb.from('hub_doelen').select('*').order('soort').order('volgorde');
