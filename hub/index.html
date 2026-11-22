@@ -92,6 +92,14 @@
     .c-kanaal { grid-area:kanaal; text-align:left !important; }
     .c-len { grid-area:len; color:var(--dim); font-size:13px; text-align:right; }
   }
+  .kpis { display:grid; grid-template-columns:repeat(2,minmax(120px,170px)) minmax(220px,1fr); gap:12px; margin-bottom:16px; }
+  .kpi { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 16px; }
+  .kpi .kv { font-size:32px; font-weight:800; line-height:1.1; background:linear-gradient(90deg,var(--sun),var(--orange)); -webkit-background-clip:text; color:transparent; }
+  .kpi .kv.dim { background:none; color:var(--txt); }
+  .kpi .kl { color:var(--dim); font-size:13px; }
+  .kbar { height:8px; border-radius:8px; background:#2a2622; overflow:hidden; margin-top:8px; }
+  .kbar i { display:block; height:100%; border-radius:8px; background:linear-gradient(90deg,var(--sun),var(--orange)); }
+  @media (max-width:700px){ .kpis { grid-template-columns:1fr 1fr; } .kpi.wide { grid-column:1 / -1; } }
   .songctl { display:inline-flex; gap:6px; align-items:center; margin-left:8px; vertical-align:middle; }
   .playbtn { width:30px; height:30px; border-radius:50%; border:none; background:var(--sun); color:#111; font-size:13px; cursor:pointer; padding:0; }
   .playbtn.on { background:#ff8a1e; }
@@ -306,10 +314,22 @@ const TABS = {
         <button class="btn ghost" id="shiftPlus">1 dag later ▶</button>
         <button class="btn ghost" id="selBtn">Selecteren</button>
         <button class="btn" id="swapBtn" hidden>Omwisselen (0/2)</button></div>`;
+    const isKlaar = st => /klaar|ingepland|live|✅/i.test(st||'');
+    const kpi = (list, parts) => {
+      const tot = list.length, ok = list.filter(x => isKlaar(x.status)).length, pct = tot ? Math.round(ok / tot * 100) : 0;
+      const sub = parts.map(([lbl, l]) => { const o = l.filter(x => isKlaar(x.status)).length; return `<span class="pill">${lbl} ${o}/${l.length}</span>`; }).join(' ');
+      return `<div class="kpis"><div class="kpi"><div class="kv">${ok}</div><div class="kl">Klaar</div></div>
+        <div class="kpi"><div class="kv dim">${tot - ok}</div><div class="kl">Nog te maken</div></div>
+        <div class="kpi wide"><div class="kl" style="display:flex;justify-content:space-between"><span>Voortgang</span><b style="color:var(--sun)">${pct}%</b></div>
+          <div class="kbar"><i style="width:${pct}%"></i></div><div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">${sub}</div></div></div>`;
+    };
+    const V = vids || [];
+    const kpiHtml = MODE === 'shorts' ? kpi(sh || [], [])
+      : kpi(V, [['Sets', V.filter(v => v.soort !== 'song' && !/uurmix/i.test(v.titel))], ['Uurmixen', V.filter(v => /uurmix/i.test(v.titel))], ['Songs', V.filter(v => v.soort === 'song')]]);
     const note = '<p class="muted">Titel met ↗ = staat op YouTube: klik om hem in Studio te openen. Status wijzigen: klik op het label, typ, Enter. YouTube-ID plakken: klik op +ID.</p>';
     $('#view').innerHTML = MODE === 'shorts'
-      ? bar('Shorts — 3 per dag') + `<table><tr><th>Datum</th><th>Tijd</th><th style="text-align:center">Kanaal</th><th>Short</th><th>Status</th></tr>${sRows}</table>` + note
-      : bar("Planning lange video's (18:00 NL)") + `<table><tr><th>Datum</th><th style="text-align:center">Kanaal</th><th>Video</th><th>Lengte</th><th>Status</th></tr>${vRows}</table>` + note;
+      ? bar('Shorts — 3 per dag') + kpiHtml + `<table><tr><th>Datum</th><th>Tijd</th><th style="text-align:center">Kanaal</th><th>Short</th><th>Status</th></tr>${sRows}</table>` + note
+      : bar("Planning lange video's (18:00 NL)") + kpiHtml + `<table><tr><th>Datum</th><th style="text-align:center">Kanaal</th><th>Video</th><th>Lengte</th><th>Status</th></tr>${vRows}</table>` + note;
     let selecting = false, sel = [];
     const tabel = MODE === 'shorts' ? 'hub_shorts' : 'hub_videos';
     const upd = () => { $('#swapBtn').textContent = `Omwisselen (${sel.length}/2)`; $('#swapBtn').disabled = sel.length !== 2; };
