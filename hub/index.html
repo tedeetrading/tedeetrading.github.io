@@ -85,14 +85,16 @@
     .c-status { grid-area:status; text-align:right; }
     .c-video { grid-area:video; font-size:16px; }
     .c-video a { font-size:17px; }
+    .c-video { display:flex; align-items:center; gap:8px; flex-wrap:nowrap; min-width:0; }
+    .c-video > a { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .c-video > .idtag { display:none; }
+    .c-video .songctl { margin-left:auto; flex:none; }
     .c-kanaal { grid-area:kanaal; text-align:left !important; }
     .c-len { grid-area:len; color:var(--dim); font-size:13px; text-align:right; }
   }
   .songctl { display:inline-flex; gap:6px; align-items:center; margin-left:8px; vertical-align:middle; }
   .playbtn { width:30px; height:30px; border-radius:50%; border:none; background:var(--sun); color:#111; font-size:13px; cursor:pointer; padding:0; }
   .playbtn.on { background:#ff8a1e; }
-  .upbtn { font-size:12px; color:var(--muted,#999); cursor:pointer; border:1px dashed #555; border-radius:12px; padding:2px 8px; }
-  .upbtn input { display:none; }
 </style>
 </head>
 <body>
