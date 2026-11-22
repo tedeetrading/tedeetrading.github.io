@@ -160,7 +160,7 @@ const moreCell = (table, row, extra) => {
   </div></td>`;
 };
 // Songs: afspelen + uploaden (privé opslag 'hub-songs', alleen voor ingelogde Hub-gebruikers)
-const songCtl = v => v.soort !== 'song' ? '' : `<span class="songctl">${v.audio ? `<button class="playbtn" data-audio="${esc(v.audio)}" title="Afspelen">▶</button>` : ''}<label class="upbtn" title="Song uploaden (mp3)">♪ ${v.audio ? 'vervang' : 'upload'}<input type="file" accept="audio/*" data-up="${v.id}"></label></span>`;
+const songCtl = v => v.audio ? `<span class="songctl"><button class="playbtn" data-audio="${esc(v.audio)}" title="Afspelen">▶</button></span>` : '';
 const player = new Audio(); let playing = null;
 function songHandlers(root) {
   root.querySelectorAll('.playbtn').forEach(b => b.onclick = async e => {
@@ -171,16 +171,6 @@ function songHandlers(root) {
     if (error) return toast('Fout: ' + error.message);
     player.src = data.signedUrl; player.play(); b.classList.add('on'); b.textContent = '❚❚'; playing = b;
     player.onended = () => { b.classList.remove('on'); b.textContent = '▶'; playing = null; };
-  });
-  root.querySelectorAll('input[data-up]').forEach(inp => {
-    inp.onclick = e => e.stopPropagation();
-    inp.onchange = async () => {
-      const f = inp.files[0]; if (!f) return; toast('Uploaden…');
-      const path = `${inp.dataset.up}_${f.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-      const up = await sb.storage.from('hub-songs').upload(path, f, { upsert: true, contentType: f.type || 'audio/mpeg' });
-      if (up.error) return toast('Fout: ' + up.error.message);
-      await save('hub_videos', { id: +inp.dataset.up }, 'audio', path); show();
-    };
   });
 }
 const toast = t => { const e = $('#toast'); e.textContent = t; e.classList.add('show'); setTimeout(()=>e.classList.remove('show'), 1400); };
