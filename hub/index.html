@@ -302,7 +302,6 @@ const TABS = {
         <td class="c-len">${esc(x.tijd)}</td>${kanaalCell('short')}<td class="c-video">${titleCell('hub_shorts', x)}</td><td class="c-status">${statusTag('hub_shorts', x)}</td>${moreCell('hub_shorts', x, {kanaal: kanalen('short').join(', '), lenLabel:'Tijd', len: x.tijd})}</tr>`);
     const bar = title => `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
         <h2 style="margin:0">${title}</h2><span class="spacer"></span>
-        <span class="muted shiftlbl">Alles schuiven (video's + shorts):</span>
         <button class="btn ghost" id="shiftMin">◀ 1 dag eerder</button>
         <button class="btn ghost" id="shiftPlus">1 dag later ▶</button>
         <button class="btn ghost" id="selBtn">Selecteren</button>
