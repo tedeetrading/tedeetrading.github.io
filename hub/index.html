@@ -88,6 +88,11 @@
     .c-kanaal { grid-area:kanaal; text-align:left !important; }
     .c-len { grid-area:len; color:var(--dim); font-size:13px; text-align:right; }
   }
+  .songctl { display:inline-flex; gap:6px; align-items:center; margin-left:8px; vertical-align:middle; }
+  .playbtn { width:30px; height:30px; border-radius:50%; border:none; background:var(--sun); color:#111; font-size:13px; cursor:pointer; padding:0; }
+  .playbtn.on { background:#ff8a1e; }
+  .upbtn { font-size:12px; color:var(--muted,#999); cursor:pointer; border:1px dashed #555; border-radius:12px; padding:2px 8px; }
+  .upbtn input { display:none; }
 </style>
 </head>
 <body>
@@ -154,6 +159,30 @@ const moreCell = (table, row, extra) => {
     ${id ? `<div class="morebtns"><a class="btn" href="https://studio.youtube.com/video/${id}/edit" target="_blank" rel="noopener">Open in Studio</a> <a class="btn ghost" href="https://youtu.be/${id}" target="_blank" rel="noopener">Bekijk op YouTube</a></div>` : '<div class="muted">Nog niet op YouTube.</div>'}
   </div></td>`;
 };
+// Songs: afspelen + uploaden (privé opslag 'hub-songs', alleen voor ingelogde Hub-gebruikers)
+const songCtl = v => v.soort !== 'song' ? '' : `<span class="songctl">${v.audio ? `<button class="playbtn" data-audio="${esc(v.audio)}" title="Afspelen">▶</button>` : ''}<label class="upbtn" title="Song uploaden (mp3)">♪ ${v.audio ? 'vervang' : 'upload'}<input type="file" accept="audio/*" data-up="${v.id}"></label></span>`;
+const player = new Audio(); let playing = null;
+function songHandlers(root) {
+  root.querySelectorAll('.playbtn').forEach(b => b.onclick = async e => {
+    e.stopPropagation();
+    if (playing === b) { player.pause(); b.classList.remove('on'); b.textContent = '▶'; playing = null; return; }
+    if (playing) { playing.classList.remove('on'); playing.textContent = '▶'; }
+    const { data, error } = await sb.storage.from('hub-songs').createSignedUrl(b.dataset.audio, 3600);
+    if (error) return toast('Fout: ' + error.message);
+    player.src = data.signedUrl; player.play(); b.classList.add('on'); b.textContent = '❚❚'; playing = b;
+    player.onended = () => { b.classList.remove('on'); b.textContent = '▶'; playing = null; };
+  });
+  root.querySelectorAll('input[data-up]').forEach(inp => {
+    inp.onclick = e => e.stopPropagation();
+    inp.onchange = async () => {
+      const f = inp.files[0]; if (!f) return; toast('Uploaden…');
+      const path = `${inp.dataset.up}_${f.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+      const up = await sb.storage.from('hub-songs').upload(path, f, { upsert: true, contentType: f.type || 'audio/mpeg' });
+      if (up.error) return toast('Fout: ' + up.error.message);
+      await save('hub_videos', { id: +inp.dataset.up }, 'audio', path); show();
+    };
+  });
+}
 const toast = t => { const e = $('#toast'); e.textContent = t; e.classList.add('show'); setTimeout(()=>e.classList.remove('show'), 1400); };
 
 async function save(table, match, field, value) {
@@ -178,7 +207,7 @@ const TABS = {
     const vRows = sep((vids||[]).map(v => ({ d: v.datum, v })), 5, ({ d, v }) => {
       const m = esc(JSON.stringify({id:v.id})), big = v.soort !== 'song';
       return `<tr data-id="${v.id}" class="${d===today?'today':''}"><td class="c-date ${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>${kanaalCell(v.soort)}
-        <td class="c-video ${big?'b':''}">${titleCell('hub_videos', v)}</td><td class="c-len">${esc(v.lengte)}</td>
+        <td class="c-video ${big?'b':''}">${titleCell('hub_videos', v)}${songCtl(v)}</td><td class="c-len">${esc(v.lengte)}</td>
         <td class="c-status">${statusTag('hub_videos', v)}</td>${moreCell('hub_videos', v, {kanaal: kanalen(v.soort).join(', '), lenLabel:'Lengte', len: v.lengte})}</tr>`; });
     const sRows = sep((sh||[]).map(x => ({ d: x.datum, x })), 5, ({ d, x }) =>
       `<tr data-id="${x.id}" class="${d===today?'today':''}"><td class="c-date ${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>
@@ -209,7 +238,7 @@ const TABS = {
       toast(error ? 'Fout: ' + error.message : 'Omgewisseld'); if (!error) show();
     };
     $('#view').querySelectorAll('tr[data-id]').forEach(tr => tr.addEventListener('click', e => {
-      if (e.target.closest('a,[contenteditable],button')) return;
+      if (e.target.closest('a,[contenteditable],button,label,input')) return;
       if (selecting) {
         const id = tr.dataset.id, i = sel.indexOf(id);
         if (i >= 0) { sel.splice(i, 1); tr.classList.remove('sel'); }
@@ -225,7 +254,7 @@ const TABS = {
     };
     $('#shiftMin').onclick = () => shift(-1);
     $('#shiftPlus').onclick = () => shift(1);
-    editable($('#view'));
+    editable($('#view')); songHandlers($('#view'));
   },
   async Shorts() { return TABS.Planning('shorts'); },
   async Shots() {
