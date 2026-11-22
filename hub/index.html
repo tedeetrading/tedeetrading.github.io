@@ -2,7 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title>DAMSUNZ Hub</title>
 <link rel="icon" type="image/png" href="favicon_rond.png">
@@ -101,26 +101,41 @@
   #ctx[hidden] { display:none; }
   #ctx button { display:block; width:100%; text-align:left; background:none; border:0; color:var(--txt); padding:10px 12px; border-radius:4px; font-size:14px; cursor:pointer; }
   #ctx button:hover { background:#3a342d; }
-  #pbar { position:fixed; left:0; right:0; bottom:0; height:76px; background:#0b0b0b; border-top:1px solid var(--line); padding:0 16px; z-index:6; display:grid; grid-template-columns:1fr 2fr 1fr; align-items:center; gap:12px; }
+  #pbar { position:fixed; left:0; right:0; bottom:0; background:linear-gradient(180deg,#1a1714,#0e0c0b); border-top:1px solid #2f2a24; padding:10px 18px calc(10px + env(safe-area-inset-bottom)); z-index:6;
+    display:grid; grid-template-columns:minmax(0,1fr) minmax(0,2fr) minmax(0,1fr); grid-template-areas:"info ctrl side"; align-items:center; gap:14px; box-shadow:0 -10px 30px #0008; }
   #pbar[hidden] { display:none; }
-  #pbar .pl { min-width:0; } #pbar .pl b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--txt); }
-  #pbar .pc { display:grid; gap:4px; justify-items:center; }
-  #pbar .pbtns { display:flex; align-items:center; gap:18px; }
-  #pbar .ib { background:none; border:0; color:var(--dim); font-size:18px; cursor:pointer; padding:0; }
-  #pbar .ib:hover, #pbar .ib.on { color:var(--txt); } #pbar .ib.on { color:var(--sun); }
-  #pbar .ib:disabled { opacity:.35; cursor:default; }
-  #pbar .big { width:36px; height:36px; border-radius:50%; border:0; background:var(--txt); color:#111; font-size:14px; cursor:pointer; }
-  #pbar .prog { display:flex; align-items:center; gap:8px; width:100%; max-width:560px; font-size:11px; color:var(--dim); }
-  #pbar input[type=range] { flex:1; accent-color:var(--sun); height:4px; }
-  #pbar .pr { text-align:right; }
-  #qpanel { position:fixed; right:0; top:0; bottom:76px; width:340px; max-width:92vw; background:#121110; border-left:1px solid var(--line); z-index:7; padding:18px; overflow:auto; }
+  #pbar .pl { grid-area:info; display:flex; align-items:center; gap:12px; min-width:0; }
+  #pbar .art { width:48px; height:48px; border-radius:8px; flex:none; background:#000 url(favicon_rond.png) center/cover; box-shadow:0 2px 10px #0009; }
+  #pbar .meta { min-width:0; } #pbar .meta b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--txt); font-size:15px; }
+  #pbar .meta span { font-size:12px; color:var(--dim); letter-spacing:.08em; }
+  #pbar .pc { grid-area:ctrl; display:grid; gap:6px; justify-items:center; }
+  #pbar .pbtns { display:flex; align-items:center; gap:22px; }
+  #pbar .ib { background:none; border:0; color:#cfc6ba; cursor:pointer; padding:4px; display:inline-flex; align-items:center; }
+  #pbar .ib svg { width:20px; height:20px; fill:currentColor; display:block; }
+  #pbar .ib:hover { color:var(--txt); } #pbar .ib.on { color:var(--sun); }
+  #pbar .ib:disabled { opacity:.3; cursor:default; }
+  #pbar .big { width:40px; height:40px; border-radius:50%; border:0; background:var(--sun); color:#111; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 2px 12px #ffc42e40; }
+  #pbar .big svg { width:18px; height:18px; fill:#111; display:block; }
+  #pbar .prog { display:flex; align-items:center; gap:10px; width:100%; max-width:620px; font-size:11px; color:var(--dim); font-variant-numeric:tabular-nums; }
+  #pbar input[type=range] { -webkit-appearance:none; appearance:none; flex:1; height:4px; border-radius:4px; margin:0; cursor:pointer;
+    background:linear-gradient(90deg,var(--sun) 0,var(--orange) var(--p,0%),#3a342d var(--p,0%)); }
+  #pbar input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; border-radius:50%; background:#fff; border:0; box-shadow:0 1px 4px #0008; }
+  #pbar input[type=range]::-moz-range-thumb { width:12px; height:12px; border-radius:50%; background:#fff; border:0; }
+  #pbar .pr { grid-area:side; display:flex; justify-content:flex-end; }
+  @media (max-width:700px){
+    #pbar { grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"info side" "ctrl ctrl"; padding:10px 14px calc(12px + env(safe-area-inset-bottom)); gap:8px 10px; }
+    #pbar .art { width:42px; height:42px; }
+    #pbar .pbtns { gap:30px; } #pbar .big { width:46px; height:46px; } #pbar .ib svg { width:24px; height:24px; }
+    #pbar .prog { max-width:none; }
+  }
+  #qpanel { position:fixed; right:0; top:0; bottom:calc(96px + env(safe-area-inset-bottom)); width:340px; max-width:92vw; background:#121110; border-left:1px solid var(--line); z-index:7; padding:18px; overflow:auto; }
   #qpanel[hidden] { display:none; }
   #qpanel h3 { margin:0 0 14px; font-size:18px; } #qpanel h4 { margin:18px 0 8px; font-size:14px; color:var(--dim); font-weight:600; }
   #qpanel .qi { display:flex; align-items:center; gap:8px; padding:8px; border-radius:6px; } #qpanel .qi:hover { background:#1e1b18; }
   #qpanel .qi span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } #qpanel .qi.now span { color:var(--sun); }
   #qpanel .qi button { background:none; border:0; color:var(--dim); cursor:pointer; font-size:14px; }
-  body:has(#pbar:not([hidden])) main { padding-bottom:110px; }
-  @media (max-width:700px){ #pbar { grid-template-columns:1fr auto; height:auto; padding:8px 12px; } #pbar .pc { grid-column:1 / -1; order:3; } #pbar .pr { order:2; } #qpanel { width:100vw; } }
+  body:has(#pbar:not([hidden])) main { padding-bottom:calc(150px + env(safe-area-inset-bottom)); }
+  @media (max-width:700px){ #qpanel { width:100vw; bottom:0; } }
 </style>
 </head>
 <body>
@@ -211,22 +226,26 @@ function prev() { if (player.currentTime > 3 || !hist.length) { player.currentTi
 function addToQueue(it) { if (!cur) return playItem(it); queue.push(it); toast('Toegevoegd aan wachtrij'); sync(); }
 ['play','pause'].forEach(ev => player.addEventListener(ev, () => sync()));
 player.addEventListener('ended', next);
-player.addEventListener('timeupdate', () => { const r = $('#pSeek'); if (r && !r.dragging) { r.max = player.duration || 0; r.value = player.currentTime; $('#pT').textContent = fmt(player.currentTime); $('#pD').textContent = fmt(player.duration); } });
+player.addEventListener('timeupdate', () => { const r = $('#pSeek'); if (r && !r.dragging) { r.max = player.duration || 0; r.value = player.currentTime; r.style.setProperty('--p', (player.duration ? player.currentTime / player.duration * 100 : 0) + '%'); $('#pT').textContent = fmt(player.currentTime); $('#pD').textContent = fmt(player.duration); } });
 function sync() {
   document.querySelectorAll('.songctl .playbtn').forEach(b => { const on = !!cur && b.dataset.audio === cur.audio && !player.paused; b.classList.toggle('on', on); b.textContent = on ? '❚❚' : '▶'; });
   const bar = $('#pbar');
   if (!cur) { bar.hidden = true; $('#qpanel').hidden = true; return; }
   bar.hidden = false;
   const qOpen = !$('#qpanel').hidden;
-  bar.innerHTML = `<div class="pl"><b>${esc(cur.title)}</b><span class="muted">DAMSUNZ</span></div>
-    <div class="pc"><div class="pbtns"><button class="ib" id="pPrev" title="Vorige">⏮</button>
-      <button class="big" id="pPlay" title="${player.paused ? 'Afspelen' : 'Pauzeren'}">${player.paused ? '▶' : '❚❚'}</button>
-      <button class="ib" id="pNext" title="Volgende" ${queue.length ? '' : 'disabled'}>⏭</button></div>
-      <div class="prog"><span id="pT">${fmt(player.currentTime)}</span><input type="range" id="pSeek" min="0" step="0.1" max="${player.duration || 0}" value="${player.currentTime}"><span id="pD">${fmt(player.duration)}</span></div></div>
-    <div class="pr"><button class="ib ${qOpen ? 'on' : ''}" id="pQ" title="Wachtrij">☰${queue.length ? ' ' + queue.length : ''}</button></div>`;
+  const I = { prev:'<svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>', next:'<svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5l11 7-11 7z"/></svg>',
+    play:'<svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg>', pause:'<svg viewBox="0 0 24 24"><path d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z"/></svg>',
+    queue:'<svg viewBox="0 0 24 24"><path d="M3 5h13v2H3zM3 10h13v2H3zM3 15h8v2H3zM17 13v6.2a2.5 2.5 0 1 1-2-2.45V11h5v2z"/></svg>' };
+  const pct = player.duration ? (player.currentTime / player.duration * 100) : 0;
+  bar.innerHTML = `<div class="pl"><div class="art"></div><div class="meta"><b>${esc(cur.title)}</b><span>DAMSUNZ</span></div></div>
+    <div class="pc"><div class="pbtns"><button class="ib" id="pPrev" title="Vorige">${I.prev}</button>
+      <button class="big" id="pPlay" title="${player.paused ? 'Afspelen' : 'Pauzeren'}">${player.paused ? I.play : I.pause}</button>
+      <button class="ib" id="pNext" title="Volgende" ${queue.length ? '' : 'disabled'}>${I.next}</button></div>
+      <div class="prog"><span id="pT">${fmt(player.currentTime)}</span><input type="range" id="pSeek" min="0" step="0.1" max="${player.duration || 0}" value="${player.currentTime}" style="--p:${pct}%"><span id="pD">${fmt(player.duration)}</span></div></div>
+    <div class="pr"><button class="ib ${qOpen ? 'on' : ''}" id="pQ" title="Wachtrij">${I.queue}${queue.length ? `<small style="margin-left:4px;font-size:12px">${queue.length}</small>` : ''}</button></div>`;
   $('#pPlay').onclick = () => toggle(cur); $('#pNext').onclick = next; $('#pPrev').onclick = prev;
   $('#pQ').onclick = () => { $('#qpanel').hidden = !$('#qpanel').hidden; sync(); };
-  const r = $('#pSeek'); r.oninput = () => { r.dragging = true; $('#pT').textContent = fmt(+r.value); }; r.onchange = () => { player.currentTime = +r.value; r.dragging = false; };
+  const r = $('#pSeek'); r.oninput = () => { r.dragging = true; $('#pT').textContent = fmt(+r.value); r.style.setProperty('--p', (r.max > 0 ? r.value / r.max * 100 : 0) + '%'); }; r.onchange = () => { player.currentTime = +r.value; r.dragging = false; };
   const qp = $('#qpanel');
   if (!qp.hidden) {
     qp.innerHTML = `<h3>Wachtrij</h3><h4>Nu aan het afspelen</h4><div class="qi now"><span>${esc(cur.title)}</span></div>
