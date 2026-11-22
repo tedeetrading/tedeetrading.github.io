@@ -113,6 +113,13 @@
   .todo .tt { flex:1; min-width:0; display:grid; gap:4px; }
   .todo.done .tt > div:first-child { text-decoration:line-through; color:var(--dim); }
   .tdel { background:none; border:0; color:var(--dim); cursor:pointer; font-size:14px; }
+  .tbar { display:flex; gap:10px; flex-wrap:wrap; }
+  @media (max-width:700px){
+    .tbar { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; width:100%; }
+    .tbar:has(#swapBtn:not([hidden])) .shufmob { display:none; }
+    .tbar .btn { padding:9px 4px; font-size:13px; white-space:nowrap; text-align:center; }
+    .tbar .lg { display:none; }
+  }
   .shufmob { display:none; }
   @media (max-width:700px){ .shufmob { display:inline-block; } }
   .shufbtn { position:absolute; right:10px; top:50%; transform:translateY(-50%); width:34px; height:34px; border-radius:50%; border:0; background:var(--sun); color:#111; box-shadow:0 2px 10px #ffc42e55; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; padding:0; }
@@ -327,11 +334,11 @@ const TABS = {
       `<tr data-id="${x.id}" class="${d===today?'today':''}"><td class="c-date ${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>
         <td class="c-len">${esc(x.tijd)}</td>${kanaalCell('short')}<td class="c-video">${titleCell('hub_shorts', x)}</td><td class="c-status">${statusTag('hub_shorts', x)}</td>${moreCell('hub_shorts', x, {kanaal: kanalen('short').join(', '), lenLabel:'Tijd', len: x.tijd})}</tr>`);
     const bar = title => `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-        <h2 style="margin:0">${title}</h2><span class="spacer"></span>
-        <button class="btn ghost" id="shiftMin">◀ 1 dag eerder</button>
-        <button class="btn ghost" id="shiftPlus">1 dag later ▶</button>
+        <h2 style="margin:0">${title}</h2><span class="spacer"></span><div class="tbar">
+        <button class="btn ghost" id="shiftMin">◀ 1 dag<span class="lg"> eerder</span></button>
+        <button class="btn ghost" id="shiftPlus">1 dag<span class="lg"> later</span> ▶</button>
         <button class="btn ghost" id="selBtn">Selecteren</button>
-        <button class="btn" id="swapBtn" hidden>Omwisselen (0/2)</button>${MODE === 'shorts' ? '' : '<button class="btn shufmob" id="shufBtn2">⤮ Shuffle</button>'}</div>`;
+        <button class="btn" id="swapBtn" hidden>Omwisselen (0/2)</button>${MODE === 'shorts' ? '' : '<button class="btn shufmob" id="shufBtn2">⤮ Shuffle</button>'}</div></div>`;
     const isKlaar = st => /klaar|ingepland|live|✅/i.test(st||'');
     const kpi = (list, parts) => {
       const tot = list.length, ok = list.filter(x => isKlaar(x.status)).length, pct = tot ? Math.round(ok / tot * 100) : 0;
