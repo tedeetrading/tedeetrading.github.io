@@ -78,19 +78,23 @@
     tr.open .c-more { display:block; grid-area:more; }
     tr:not(.sep):not(.open)::after { content:''; }
     tr.sep { height:10px; }
-    tr:not(.sep) { display:grid; grid-template-columns:1fr auto; grid-template-areas:"date status" "video video" "kanaal len" "more more"; cursor:pointer;
-      gap:4px 10px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:8px; }
+    tr:not(.sep) { display:grid; grid-template-columns:auto 1fr auto; grid-template-areas:"date date status" "title title title" "kanaal len ctl" "more more more"; cursor:pointer; align-items:center;
+      gap:8px 10px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:10px; }
     td { border:0; padding:0; }
     .c-date { grid-area:date; color:var(--dim); font-size:13px; }
-    .c-status { grid-area:status; text-align:right; }
-    .c-video { grid-area:video; font-size:16px; }
-    .c-video a { font-size:17px; }
-    .c-video { display:flex; align-items:center; gap:8px; flex-wrap:nowrap; min-width:0; }
-    .c-video > a { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .c-status { grid-area:status; justify-self:end; }
+    .c-status .pill { font-size:12px; padding:3px 10px; }
+    .c-video { display:contents; }
+    .c-video .ttl { grid-area:title; font-size:17px; font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .c-video:not(.b) .ttl { font-weight:500; }
+    .c-video .ttl a { font-size:17px; }
     .c-video > .idtag { display:none; }
-    .c-video .songctl { margin-left:auto; flex:none; }
+    .c-video .songctl { grid-area:ctl; margin:0; justify-self:end; gap:8px; }
+    .songctl .playbtn, .songctl .qbtn { width:34px; height:34px; font-size:13px; }
+    .songctl .qbtn { border:1px solid var(--line); font-size:16px; }
     .c-kanaal { grid-area:kanaal; text-align:left !important; }
-    .c-len { grid-area:len; color:var(--dim); font-size:13px; text-align:right; }
+    .c-len { grid-area:len; color:var(--dim); font-size:13px; text-align:left; }
+    .c-len::before { content:'· '; }
   }
   .kpis { display:grid; grid-template-columns:repeat(2,minmax(120px,170px)) minmax(220px,1fr); gap:12px; margin-bottom:16px; }
   .kpi { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 16px; }
@@ -187,7 +191,7 @@ const yt = id => id ? `https://studio.youtube.com/video/${id}/edit` : null;
 const badge = st => { const ok = /klaar|ingepland|live|✅/i.test(st||''); return `<span class="pill" style="${ok?'color:#111;background:var(--sun);border-color:var(--sun)':''}">${esc(st||'nog maken')}</span>`; };
 const titleCell = (table, row, field='titel') => {
   const m = esc(JSON.stringify({id:row.id}));
-  const t = row.youtube_id ? `<a href="${yt(row.youtube_id)}" target="_blank" rel="noopener">${esc(row[field])} ↗</a>` : esc(row[field]);
+  const t = `<span class="ttl">${row.youtube_id ? `<a href="${yt(row.youtube_id)}" target="_blank" rel="noopener">${esc(row[field])} ↗</a>` : esc(row[field])}</span>`;
   return `${t} <span class="idtag" title="YouTube-ID (klik om te plakken)" data-t="${table}" data-m="${m}" data-f="youtube_id" data-ph="+ID">${esc(row.youtube_id||'')}</span>`;
 };
 const statusTag = (table, row) => {
