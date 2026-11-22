@@ -104,6 +104,8 @@
   <input id="em" type="email" placeholder="E-mail" autocomplete="username">
   <input id="pw" type="password" placeholder="Wachtwoord" autocomplete="current-password">
   <p><button class="btn" id="go">Inloggen</button> <button class="btn ghost" id="su">Account aanmaken</button></p>
+  <p><a href="#" id="fg" class="muted">Wachtwoord vergeten?</a></p>
+  <div id="newpw" hidden><input id="pw2" type="password" placeholder="Nieuw wachtwoord" autocomplete="new-password"><p><button class="btn" id="setpw">Wachtwoord opslaan</button></p></div>
   <p class="muted" id="msg"></p>
 </div>
 
@@ -329,9 +331,24 @@ $('#su').onclick = async () => {
   const { error } = await sb.auth.signUp({ email: $('#em').value, password: $('#pw').value, options: { emailRedirectTo: location.href.split('#')[0] } });
   $('#msg').textContent = error ? error.message : 'Check je mail en klik op de bevestigingslink. Daarna inloggen.';
 };
+$('#fg').onclick = async (e) => {
+  e.preventDefault();
+  if (!$('#em').value) { $('#msg').textContent = 'Vul eerst je e-mailadres in.'; return; }
+  const { error } = await sb.auth.resetPasswordForEmail($('#em').value, { redirectTo: location.href.split('#')[0] });
+  $('#msg').textContent = error ? error.message : 'Check je mail: klik op de link en kies een nieuw wachtwoord.';
+};
+$('#setpw').onclick = async () => {
+  const { error } = await sb.auth.updateUser({ password: $('#pw2').value });
+  $('#msg').textContent = error ? error.message : 'Nieuw wachtwoord opgeslagen.';
+  if (!error) { recovering = false; $('#newpw').hidden = true; start(); }
+};
+let recovering = false;
 $('#out').onclick = async () => { await sb.auth.signOut(); start(); };
 window.addEventListener('hashchange', show);
-sb.auth.onAuthStateChange((ev) => { if (ev !== 'TOKEN_REFRESHED') start(); });
+sb.auth.onAuthStateChange((ev) => {
+  if (ev === 'PASSWORD_RECOVERY') { recovering = true; $('#app').hidden = true; $('#login').hidden = false; $('#newpw').hidden = false; $('#msg').textContent = 'Kies een nieuw wachtwoord.'; return; }
+  if (ev !== 'TOKEN_REFRESHED' && !recovering) start();
+});
 </script>
 </body>
 </html>
