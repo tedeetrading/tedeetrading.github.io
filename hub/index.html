@@ -194,6 +194,7 @@
   <main id="view"></main>
 </div>
 <div class="toast" id="toast">Opgeslagen</div>
+<audio id="aud" preload="auto" playsinline></audio>
 <div id="pbar" hidden></div>
 <div id="qpanel" hidden></div>
 <div id="ctx" hidden></div>
@@ -243,21 +244,43 @@ const moreCell = (table, row, extra) => {
 // Songs: afspelen + uploaden (privé opslag 'hub-songs', alleen voor ingelogde Hub-gebruikers)
 const songCtl = v => v.audio ? `<span class="songctl"><button class="playbtn" data-audio="${esc(v.audio)}" data-title="${esc(v.titel)}" title="Afspelen">▶</button><button class="qbtn" data-audio="${esc(v.audio)}" data-title="${esc(v.titel)}" title="Meer opties">⋯</button></span>` : '';
 // Speler zoals Spotify: ⋯-menu (Afspelen / Toevoegen aan wachtrij), spelerbalk onderin, wachtrijpaneel.
-const player = new Audio(); let cur = null; const queue = []; const hist = [];
+// Eén echt <audio>-element in de pagina: speelt door als het scherm uit gaat (Safari/Chrome op de telefoon).
+const player = document.getElementById('aud'); let cur = null; const queue = []; const hist = [];
 const fmt = t => isFinite(t) ? `${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}` : '0:00';
+const urlCache = new Map();  // signed URLs vooraf ophalen, zodat de volgende song ook met scherm uit meteen start
+async function signed(path) {
+  const c = urlCache.get(path); if (c && c.until > Date.now()) return c.url;
+  const { data, error } = await sb.storage.from('hub-songs').createSignedUrl(path, 3600);
+  if (error) throw error;
+  urlCache.set(path, { url: data.signedUrl, until: Date.now() + 50 * 60 * 1000 }); return data.signedUrl;
+}
+function prefetchNext() { if (queue[0]) signed(queue[0].audio).catch(() => {}); }
+function mediaSession() {
+  if (!('mediaSession' in navigator) || !cur) return;
+  navigator.mediaSession.metadata = new MediaMetadata({ title: cur.title, artist: 'DAMSUNZ', album: 'DAMSUNZ Hub',
+    artwork: [{ src: new URL('apple-touch-icon.png', location.href).href, sizes: '180x180', type: 'image/png' }] });
+  navigator.mediaSession.playbackState = player.paused ? 'paused' : 'playing';
+}
+if ('mediaSession' in navigator) {
+  const ms = navigator.mediaSession;
+  ms.setActionHandler('play', () => player.play());
+  ms.setActionHandler('pause', () => player.pause());
+  ms.setActionHandler('nexttrack', () => next());
+  ms.setActionHandler('previoustrack', () => prev());
+  try { ms.setActionHandler('seekto', d => { player.currentTime = d.seekTime; }); } catch (e) {}
+}
 async function playItem(item, fromBack) {
-  const { data, error } = await sb.storage.from('hub-songs').createSignedUrl(item.audio, 3600);
-  if (error) return toast('Fout: ' + error.message);
+  let url; try { url = await signed(item.audio); } catch (e) { return toast('Fout: ' + e.message); }
   if (cur && !fromBack) hist.push(cur);
-  cur = item; player.src = data.signedUrl;
+  cur = item; player.src = url;
   try { await player.play(); } catch (e) { toast('Afspelen lukt niet: ' + e.message); }
-  sync();
+  mediaSession(); prefetchNext(); sync();
 }
 function toggle(item) { if (cur && cur.audio === item.audio) { player.paused ? player.play() : player.pause(); } else playItem(item); }
 function next() { const n = queue.shift(); if (n) playItem(n); else { player.pause(); player.currentTime = 0; sync(); } }
 function prev() { if (player.currentTime > 3 || !hist.length) { player.currentTime = 0; return; } if (cur) queue.unshift(cur); playItem(hist.pop(), true); }
-function addToQueue(it) { if (!cur) return playItem(it); queue.push(it); toast('Toegevoegd aan wachtrij'); sync(); }
-['play','pause'].forEach(ev => player.addEventListener(ev, () => sync()));
+function addToQueue(it) { if (!cur) return playItem(it); queue.push(it); prefetchNext(); toast('Toegevoegd aan wachtrij'); sync(); }
+['play','pause'].forEach(ev => player.addEventListener(ev, () => { sync(); mediaSession(); }));
 player.addEventListener('ended', next);
 player.addEventListener('timeupdate', () => { const r = $('#pSeek'); if (r && !r.dragging) { r.max = player.duration || 0; r.value = player.currentTime; r.style.setProperty('--p', (player.duration ? player.currentTime / player.duration * 100 : 0) + '%'); $('#pT').textContent = fmt(player.currentTime); $('#pD').textContent = fmt(player.duration); } });
 function sync() {
