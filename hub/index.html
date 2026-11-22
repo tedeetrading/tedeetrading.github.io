@@ -98,7 +98,7 @@
 </style>
 </head>
 <body>
-<div id="login">
+<div id="login" hidden>
   <div class="logo" style="font-size:28px">DAMSUNZ</div>
   <p class="muted">Hub · alleen voor TD Trading</p>
   <input id="em" type="email" placeholder="E-mail" autocomplete="username">
@@ -313,10 +313,13 @@ async function show() {
   tabs(name); $('#view').innerHTML = '<p class="muted">Laden…</p>';
   try { await TABS[name](); } catch (e) { $('#view').innerHTML = '<p>Fout bij laden: ' + esc(e.message) + '</p>'; }
 }
+let shownFor = null; // voorkomt dubbel laden en flikkeren van het inlogscherm
 async function start() {
   const { data: { session } } = await sb.auth.getSession();
   $('#login').hidden = !!session; $('#app').hidden = !session;
-  if (session) { $('#who').textContent = session.user.email; show(); }
+  const who = session ? session.user.email : null;
+  if (session && shownFor !== who) { $('#who').textContent = who; show(); }
+  shownFor = who;
 }
 $('#go').onclick = async () => {
   const { error } = await sb.auth.signInWithPassword({ email: $('#em').value, password: $('#pw').value });
@@ -328,8 +331,7 @@ $('#su').onclick = async () => {
 };
 $('#out').onclick = async () => { await sb.auth.signOut(); start(); };
 window.addEventListener('hashchange', show);
-sb.auth.onAuthStateChange(() => start());
-start();
+sb.auth.onAuthStateChange((ev) => { if (ev !== 'TOKEN_REFRESHED') start(); });
 </script>
 </body>
 </html>
