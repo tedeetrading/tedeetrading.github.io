@@ -248,6 +248,25 @@ const TABS = {
     $('#shiftPlus').onclick = () => shift(1);
     editable($('#view')); songHandlers($('#view'));
   },
+  async Doelen() {
+    const { data } = await sb.from('hub_doelen').select('*').order('soort').order('volgorde');
+    const groups = {};
+    (data||[]).forEach(d => (groups[d.soort] ??= []).push(d));
+    let html = '';
+    for (const [soort, list] of Object.entries(groups)) {
+      html += `<h2 style="margin-top:${html?'26px':'0'}">${esc(soort)}</h2><div class="grid">`;
+      for (const d of list) {
+        const m = esc(JSON.stringify({id:d.id}));
+        html += `<div class="card"><div style="font-size:34px;font-weight:800;color:var(--sun);line-height:1.1"><span data-t="hub_doelen" data-m="${m}" data-f="waarde">${esc(d.waarde)}</span>
+          <span class="muted" style="font-size:14px;font-weight:400">${esc(d.per)}</span></div>
+          <div style="font-weight:600;margin-top:4px">${esc(d.doel)}</div>
+          <div class="muted" data-t="hub_doelen" data-m="${m}" data-f="notitie">${esc(d.notitie||'')}</div></div>`;
+      }
+      html += '</div>';
+    }
+    $('#view').innerHTML = html || '<p class="muted">Nog geen doelen.</p>';
+    editable($('#view'));
+  },
   async Shorts() { return TABS.Planning('shorts'); },
   async Shots() {
     const { data } = await sb.from('hub_shots').select('*').order('video').order('nr');
