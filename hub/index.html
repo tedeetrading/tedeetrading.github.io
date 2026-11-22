@@ -125,6 +125,11 @@
   .shufbtn { position:absolute; right:10px; top:50%; transform:translateY(-50%); width:34px; height:34px; border-radius:50%; border:0; background:var(--sun); color:#111; box-shadow:0 2px 10px #ffc42e55; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; padding:0; }
   .shufbtn:hover { background:var(--orange); }
   .shufbtn svg { width:16px; height:16px; fill:currentColor; }
+  .kpis.fin { grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .kpis.fin .kv { font-size:26px; }
+  @media (max-width:700px){ .kpis.fin { grid-template-columns:1fr 1fr; } .kpis.fin .kv { font-size:20px; }
+    .fintab tr { display:block !important; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 12px; margin-bottom:8px; }
+    .fintab td { display:inline-block; padding:2px 8px 2px 0; } .fintab tr:has(th) { display:none !important; } }
   .songctl { display:inline-flex; gap:6px; align-items:center; margin-left:8px; vertical-align:middle; }
   .playbtn { width:30px; height:30px; border-radius:50%; border:none; background:var(--sun); color:#111; font-size:13px; cursor:pointer; padding:0; }
   .playbtn.on { background:#ff8a1e; }
@@ -476,14 +481,50 @@ const TABS = {
     $('#view').innerHTML = html; editable($('#view'));
   },
   async 'Kosten & credits'() {
-    const [{ data: info }, { data: kost }] = await Promise.all([sb.from('hub_info').select('*').order('key'), sb.from('hub_kosten').select('*').order('datum',{ascending:false})]);
-    const cards = (info||[]).map(i => `<div class="card"><div class="muted">${esc(i.key.replaceAll('_',' '))}</div>
-      <b data-t="hub_info" data-m="${esc(JSON.stringify({key:i.key}))}" data-f="value">${esc(i.value)}</b></div>`).join('');
-    const tot = (kost||[]).reduce((a,k)=>a+Number(k.bedrag),0);
-    const rows = (kost||[]).map(k => `<tr><td>${nlDatum(k.datum)}</td><td>${esc(k.post)}</td><td>${esc(k.valuta)} ${Number(k.bedrag).toFixed(2)}</td><td class="muted">${esc(k.notitie)}</td></tr>`).join('');
-    $('#view').innerHTML = `<h2>Credits & regels</h2><div class="grid">${cards}</div>
-      <h2 style="margin-top:24px">Kosten (pipeline) <span class="pill">totaal ${tot.toFixed(2)}</span></h2>
-      <table><tr><th>Datum</th><th>Post</th><th>Bedrag</th><th>Notitie</th></tr>${rows || '<tr><td colspan="4" class="muted">Nog geen kosten geboekt.</td></tr>'}</table>`;
+    const [{ data: info }, { data: kost }, { data: abos }] = await Promise.all([sb.from('hub_info').select('*').order('key'),
+      sb.from('hub_kosten').select('*').order('datum', { ascending: false }), sb.from('hub_abonnementen').select('*').order('volgorde')]);
+    const I = Object.fromEntries((info || []).map(i => [i.key, i.value]));
+    const rate = parseFloat(String(I.koers_usd_eur || '0.86').replace(',', '.')) || 0.86;
+    const eur = (b, v) => Number(b) * (v === 'USD' ? rate : 1);
+    const EU = n => '€ ' + n.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const orig = (b, v) => (v === 'USD' ? '$ ' : '€ ') + Number(b).toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const monthsSince = d => { const a = new Date(d + 'T12:00:00'), n = new Date(); return (n.getFullYear() - a.getFullYear()) * 12 + (n.getMonth() - a.getMonth()) - (n.getDate() < a.getDate() ? 1 : 0); };
+    const paidCycles = x => { if (x.status === 'gepland' || !x.sinds || !Number(x.bedrag)) return 0;
+      const m = Math.max(0, monthsSince(x.sinds)); return x.periode === 'jaar' ? Math.floor(m / 12) + 1 : m + 1; };
+    const perMaand = x => x.periode === 'jaar' ? eur(x.bedrag, x.valuta) / 12 : eur(x.bedrag, x.valuta);
+    const A = abos || [];
+    const aboPaid = A.reduce((t, x) => t + paidCycles(x) * eur(x.bedrag, x.valuta), 0);
+    const losPaid = (kost || []).reduce((t, k) => t + eur(k.bedrag, k.valuta), 0);
+    const totaal = aboPaid + losPaid;
+    const maandNu = A.filter(x => x.status === 'actief').reduce((t, x) => t + perMaand(x), 0);
+    const maandGepland = A.filter(x => x.status === 'gepland').reduce((t, x) => t + perMaand(x), 0);
+    const kpis = `<div class="kpis fin"><div class="kpi"><div class="kv">${EU(totaal)}</div><div class="kl">Totaal uitgegeven tot nu</div></div>
+      <div class="kpi"><div class="kv dim">${EU(maandNu)}</div><div class="kl">Vaste kosten per maand (nu)</div></div>
+      <div class="kpi"><div class="kv dim">${EU(maandNu + maandGepland)}</div><div class="kl">Per maand incl. gepland (${EU(maandGepland)} erbij)</div></div>
+      <div class="kpi"><div class="kv dim">${esc(I.fal_tegoed_over || '–')}</div><div class="kl">fal.ai-tegoed over</div></div></div>`;
+    const stPill = st => `<span class="pill ${st === 'actief' ? 'ok' : ''}">${esc(st)}</span>`;
+    const aboRows = A.map(x => { const m = esc(JSON.stringify({ id: x.id })), c = paidCycles(x);
+      return `<tr><td class="b">${esc(x.dienst)}</td><td class="muted">${esc(x.wat || '')}</td>
+        <td><span data-t="hub_abonnementen" data-m="${m}" data-f="bedrag">${esc(x.bedrag)}</span> ${x.valuta === 'USD' ? '$' : '€'} <span class="muted">/ ${esc(x.periode)}</span></td>
+        <td>${x.sinds ? nlDatum(x.sinds) : '–'}</td><td><span data-t="hub_abonnementen" data-m="${m}" data-f="status">${esc(x.status)}</span></td>
+        <td class="b">${c ? EU(c * eur(x.bedrag, x.valuta)) : '–'}</td><td class="muted" data-t="hub_abonnementen" data-m="${m}" data-f="notitie">${esc(x.notitie || '')}</td></tr>`; }).join('');
+    const losRows = (kost || []).map(k => `<tr><td>${nlDatum(k.datum)}</td><td>${esc(k.post)}</td><td>${orig(k.bedrag, k.valuta)}</td><td class="b">${EU(eur(k.bedrag, k.valuta))}</td>
+      <td class="muted">${esc(k.notitie || '')}</td><td><button class="tdel" data-delk="${k.id}" title="Verwijderen">✕</button></td></tr>`).join('');
+    const cards = (info || []).filter(i => !['koers_usd_eur', 'fal_tegoed_over'].includes(i.key)).map(i => `<div class="card"><div class="muted">${esc(i.key.replaceAll('_', ' '))}</div>
+      <b data-t="hub_info" data-m="${esc(JSON.stringify({ key: i.key }))}" data-f="value">${esc(i.value)}</b></div>`).join('');
+    $('#view').innerHTML = `<h2>Financieel overzicht</h2>${kpis}
+      <h2 style="margin-top:22px">Abonnementen</h2><table class="fintab"><tr><th>Dienst</th><th>Wat</th><th>Bedrag</th><th>Sinds</th><th>Status</th><th>Betaald tot nu</th><th>Notitie</th></tr>${aboRows}</table>
+      <h2 style="margin-top:22px">Losse betalingen <span class="pill">${EU(losPaid)}</span></h2>
+      <div class="todoadd"><input id="kDatum" type="date" value="${today}"><input id="kPost" placeholder="Waarvoor (bv. fal.ai tegoed)"><input id="kBedrag" type="number" step="0.01" placeholder="Bedrag" style="max-width:120px;min-width:90px">
+        <select id="kVal"><option>USD</option><option>EUR</option></select><button class="btn" id="kAdd">Toevoegen</button></div>
+      <table class="fintab"><tr><th>Datum</th><th>Waarvoor</th><th>Bedrag</th><th>In euro</th><th>Notitie</th><th></th></tr>${losRows || '<tr><td colspan="6" class="muted">Nog niets.</td></tr>'}</table>
+      <p class="muted">Dollars omgerekend met koers ${String(rate).replace('.', ',')} (schatting). Jaarabonnementen tellen per jaar mee; maandabonnementen elke maand vanaf de startdatum.</p>
+      <h2 style="margin-top:22px">Credits & regels</h2><div class="grid">${cards}</div>`;
+    $('#kAdd').onclick = async () => { const b = parseFloat($('#kBedrag').value); if (!$('#kPost').value.trim() || !b) return toast('Vul waarvoor + bedrag in');
+      const { error } = await sb.from('hub_kosten').insert({ datum: $('#kDatum').value, post: $('#kPost').value.trim(), bedrag: b, valuta: $('#kVal').value });
+      toast(error ? 'Fout: ' + error.message : 'Toegevoegd'); if (!error) show(); };
+    $('#view').querySelectorAll('[data-delk]').forEach(btn => btn.onclick = async () => {
+      const { error } = await sb.from('hub_kosten').delete().eq('id', +btn.dataset.delk); toast(error ? 'Fout: ' + error.message : 'Verwijderd'); if (!error) show(); });
     editable($('#view'));
   },
   async Links() {
