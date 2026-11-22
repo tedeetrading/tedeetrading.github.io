@@ -95,14 +95,32 @@
   .songctl { display:inline-flex; gap:6px; align-items:center; margin-left:8px; vertical-align:middle; }
   .playbtn { width:30px; height:30px; border-radius:50%; border:none; background:var(--sun); color:#111; font-size:13px; cursor:pointer; padding:0; }
   .playbtn.on { background:#ff8a1e; }
-  .qbtn { width:30px; height:30px; border-radius:50%; border:1px solid var(--line); background:none; color:var(--sun); font-size:17px; cursor:pointer; padding:0; line-height:1; }
-  #pbar { position:fixed; left:0; right:0; bottom:0; background:#151311f2; border-top:1px solid var(--orange); padding:10px 16px; z-index:5; display:grid; gap:6px; }
+  .qbtn { width:30px; height:30px; border-radius:50%; border:none; background:none; color:var(--dim); font-size:18px; cursor:pointer; padding:0; line-height:1; letter-spacing:1px; }
+  .qbtn:hover { color:var(--txt); background:#221d17; }
+  #ctx { position:fixed; z-index:9; background:#282420; border-radius:6px; box-shadow:0 8px 24px #000a; padding:4px; min-width:210px; }
+  #ctx[hidden] { display:none; }
+  #ctx button { display:block; width:100%; text-align:left; background:none; border:0; color:var(--txt); padding:10px 12px; border-radius:4px; font-size:14px; cursor:pointer; }
+  #ctx button:hover { background:#3a342d; }
+  #pbar { position:fixed; left:0; right:0; bottom:0; height:76px; background:#0b0b0b; border-top:1px solid var(--line); padding:0 16px; z-index:6; display:grid; grid-template-columns:1fr 2fr 1fr; align-items:center; gap:12px; }
   #pbar[hidden] { display:none; }
-  #pbar .pnow { display:flex; align-items:center; gap:10px; }
-  #pbar .ptitle { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  #pbar .pq { display:flex; gap:6px; flex-wrap:wrap; font-size:13px; }
-  #pbar .pq a { text-decoration:none; margin-left:4px; }
-  body:has(#pbar:not([hidden])) main { padding-bottom:120px; }
+  #pbar .pl { min-width:0; } #pbar .pl b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--txt); }
+  #pbar .pc { display:grid; gap:4px; justify-items:center; }
+  #pbar .pbtns { display:flex; align-items:center; gap:18px; }
+  #pbar .ib { background:none; border:0; color:var(--dim); font-size:18px; cursor:pointer; padding:0; }
+  #pbar .ib:hover, #pbar .ib.on { color:var(--txt); } #pbar .ib.on { color:var(--sun); }
+  #pbar .ib:disabled { opacity:.35; cursor:default; }
+  #pbar .big { width:36px; height:36px; border-radius:50%; border:0; background:var(--txt); color:#111; font-size:14px; cursor:pointer; }
+  #pbar .prog { display:flex; align-items:center; gap:8px; width:100%; max-width:560px; font-size:11px; color:var(--dim); }
+  #pbar input[type=range] { flex:1; accent-color:var(--sun); height:4px; }
+  #pbar .pr { text-align:right; }
+  #qpanel { position:fixed; right:0; top:0; bottom:76px; width:340px; max-width:92vw; background:#121110; border-left:1px solid var(--line); z-index:7; padding:18px; overflow:auto; }
+  #qpanel[hidden] { display:none; }
+  #qpanel h3 { margin:0 0 14px; font-size:18px; } #qpanel h4 { margin:18px 0 8px; font-size:14px; color:var(--dim); font-weight:600; }
+  #qpanel .qi { display:flex; align-items:center; gap:8px; padding:8px; border-radius:6px; } #qpanel .qi:hover { background:#1e1b18; }
+  #qpanel .qi span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } #qpanel .qi.now span { color:var(--sun); }
+  #qpanel .qi button { background:none; border:0; color:var(--dim); cursor:pointer; font-size:14px; }
+  body:has(#pbar:not([hidden])) main { padding-bottom:110px; }
+  @media (max-width:700px){ #pbar { grid-template-columns:1fr auto; height:auto; padding:8px 12px; } #pbar .pc { grid-column:1 / -1; order:3; } #pbar .pr { order:2; } #qpanel { width:100vw; } }
 </style>
 </head>
 <body>
@@ -129,6 +147,8 @@
 </div>
 <div class="toast" id="toast">Opgeslagen</div>
 <div id="pbar" hidden></div>
+<div id="qpanel" hidden></div>
+<div id="ctx" hidden></div>
 
 <script type="module">
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
@@ -173,49 +193,63 @@ const moreCell = (table, row, extra) => {
   </div></td>`;
 };
 // Songs: afspelen + uploaden (privé opslag 'hub-songs', alleen voor ingelogde Hub-gebruikers)
-const songCtl = v => v.audio ? `<span class="songctl"><button class="playbtn" data-audio="${esc(v.audio)}" data-title="${esc(v.titel)}" title="Afspelen / pauze">▶</button><button class="qbtn" data-audio="${esc(v.audio)}" data-title="${esc(v.titel)}" title="Aan wachtrij toevoegen">+</button></span>` : '';
-// Speler met wachtrij. Status hangt aan het bestand (niet aan de knop), zodat hij klopt na opnieuw laden van de lijst.
-const player = new Audio(); let cur = null; const queue = [];
-async function playItem(item) {
+const songCtl = v => v.audio ? `<span class="songctl"><button class="playbtn" data-audio="${esc(v.audio)}" data-title="${esc(v.titel)}" title="Afspelen">▶</button><button class="qbtn" data-audio="${esc(v.audio)}" data-title="${esc(v.titel)}" title="Meer opties">⋯</button></span>` : '';
+// Speler zoals Spotify: ⋯-menu (Afspelen / Toevoegen aan wachtrij), spelerbalk onderin, wachtrijpaneel.
+const player = new Audio(); let cur = null; const queue = []; const hist = [];
+const fmt = t => isFinite(t) ? `${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,'0')}` : '0:00';
+async function playItem(item, fromBack) {
   const { data, error } = await sb.storage.from('hub-songs').createSignedUrl(item.audio, 3600);
   if (error) return toast('Fout: ' + error.message);
+  if (cur && !fromBack) hist.push(cur);
   cur = item; player.src = data.signedUrl;
   try { await player.play(); } catch (e) { toast('Afspelen lukt niet: ' + e.message); }
   sync();
 }
-function toggle(item) {
-  if (cur && cur.audio === item.audio) { player.paused ? player.play() : player.pause(); }
-  else playItem(item);
-}
-function next() { const n = queue.shift(); if (n) playItem(n); else { cur = null; sync(); } }
-player.addEventListener('play', () => sync());
-player.addEventListener('pause', () => sync());
+function toggle(item) { if (cur && cur.audio === item.audio) { player.paused ? player.play() : player.pause(); } else playItem(item); }
+function next() { const n = queue.shift(); if (n) playItem(n); else { player.pause(); player.currentTime = 0; sync(); } }
+function prev() { if (player.currentTime > 3 || !hist.length) { player.currentTime = 0; return; } if (cur) queue.unshift(cur); playItem(hist.pop(), true); }
+function addToQueue(it) { if (!cur) return playItem(it); queue.push(it); toast('Toegevoegd aan wachtrij'); sync(); }
+['play','pause'].forEach(ev => player.addEventListener(ev, () => sync()));
 player.addEventListener('ended', next);
+player.addEventListener('timeupdate', () => { const r = $('#pSeek'); if (r && !r.dragging) { r.max = player.duration || 0; r.value = player.currentTime; $('#pT').textContent = fmt(player.currentTime); $('#pD').textContent = fmt(player.duration); } });
 function sync() {
-  document.querySelectorAll('.playbtn').forEach(b => {
-    const on = !!cur && b.dataset.audio === cur.audio && !player.paused;
-    b.classList.toggle('on', on); b.textContent = on ? '❚❚' : '▶';
-  });
+  document.querySelectorAll('.songctl .playbtn').forEach(b => { const on = !!cur && b.dataset.audio === cur.audio && !player.paused; b.classList.toggle('on', on); b.textContent = on ? '❚❚' : '▶'; });
   const bar = $('#pbar');
-  if (!cur && !queue.length) { bar.hidden = true; return; }
+  if (!cur) { bar.hidden = true; $('#qpanel').hidden = true; return; }
   bar.hidden = false;
-  bar.innerHTML = `<div class="pnow"><button class="playbtn ${cur && !player.paused ? 'on' : ''}" id="pPlay">${cur && !player.paused ? '❚❚' : '▶'}</button>
-      <div class="ptitle"><span class="muted">Nu:</span> ${cur ? esc(cur.title) : '–'}</div>
-      <button class="btn ghost" id="pNext" ${queue.length ? '' : 'disabled'}>Volgende ⏭</button>
-      <button class="btn ghost" id="pClose" title="Stoppen en wachtrij leegmaken">✕</button></div>
-    ${queue.length ? `<div class="pq"><span class="muted">Wachtrij:</span> ${queue.map((q, i) => `<span class="pill">${i + 1}. ${esc(q.title)} <a href="#" data-rm="${i}" title="Verwijderen">✕</a></span>`).join(' ')}</div>` : ''}`;
-  $('#pPlay').onclick = () => cur ? toggle(cur) : next();
-  $('#pNext').onclick = () => next();
-  $('#pClose').onclick = () => { player.pause(); queue.length = 0; cur = null; sync(); };
-  bar.querySelectorAll('[data-rm]').forEach(a => a.onclick = e => { e.preventDefault(); queue.splice(+a.dataset.rm, 1); sync(); });
+  const qOpen = !$('#qpanel').hidden;
+  bar.innerHTML = `<div class="pl"><b>${esc(cur.title)}</b><span class="muted">DAMSUNZ</span></div>
+    <div class="pc"><div class="pbtns"><button class="ib" id="pPrev" title="Vorige">⏮</button>
+      <button class="big" id="pPlay" title="${player.paused ? 'Afspelen' : 'Pauzeren'}">${player.paused ? '▶' : '❚❚'}</button>
+      <button class="ib" id="pNext" title="Volgende" ${queue.length ? '' : 'disabled'}>⏭</button></div>
+      <div class="prog"><span id="pT">${fmt(player.currentTime)}</span><input type="range" id="pSeek" min="0" step="0.1" max="${player.duration || 0}" value="${player.currentTime}"><span id="pD">${fmt(player.duration)}</span></div></div>
+    <div class="pr"><button class="ib ${qOpen ? 'on' : ''}" id="pQ" title="Wachtrij">☰${queue.length ? ' ' + queue.length : ''}</button></div>`;
+  $('#pPlay').onclick = () => toggle(cur); $('#pNext').onclick = next; $('#pPrev').onclick = prev;
+  $('#pQ').onclick = () => { $('#qpanel').hidden = !$('#qpanel').hidden; sync(); };
+  const r = $('#pSeek'); r.oninput = () => { r.dragging = true; $('#pT').textContent = fmt(+r.value); }; r.onchange = () => { player.currentTime = +r.value; r.dragging = false; };
+  const qp = $('#qpanel');
+  if (!qp.hidden) {
+    qp.innerHTML = `<h3>Wachtrij</h3><h4>Nu aan het afspelen</h4><div class="qi now"><span>${esc(cur.title)}</span></div>
+      <h4>Hierna in wachtrij</h4>${queue.length ? queue.map((q, i) => `<div class="qi"><span>${esc(q.title)}</span><button data-pl="${i}" title="Nu afspelen">▶</button><button data-rm="${i}" title="Verwijderen uit wachtrij">✕</button></div>`).join('') + '<p><button class="btn ghost" id="qClear">Wachtrij wissen</button></p>' : '<p class="muted">Leeg. Klik bij een song op ⋯ → Toevoegen aan wachtrij.</p>'}`;
+    qp.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { queue.splice(+b.dataset.rm, 1); sync(); });
+    qp.querySelectorAll('[data-pl]').forEach(b => b.onclick = () => { const [it] = queue.splice(+b.dataset.pl, 1); playItem(it); });
+    const c = $('#qClear'); if (c) c.onclick = () => { queue.length = 0; sync(); };
+  }
 }
+function openMenu(it, x, y) {
+  const m = $('#ctx');
+  m.innerHTML = `<button data-a="play">${cur && cur.audio === it.audio && !player.paused ? 'Pauzeren' : 'Afspelen'}</button><button data-a="queue">Toevoegen aan wachtrij</button>`;
+  m.hidden = false; m.style.left = Math.min(x, innerWidth - 220) + 'px'; m.style.top = Math.min(y, innerHeight - 110) + 'px';
+  m.querySelector('[data-a=play]').onclick = () => { m.hidden = true; toggle(it); };
+  m.querySelector('[data-a=queue]').onclick = () => { m.hidden = true; addToQueue(it); };
+}
+document.addEventListener('click', e => { if (!e.target.closest('#ctx,.qbtn')) $('#ctx').hidden = true; });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') $('#ctx').hidden = true; });
 function songHandlers(root) {
   const item = b => ({ audio: b.dataset.audio, title: b.dataset.title });
-  root.querySelectorAll('.playbtn').forEach(b => b.onclick = e => { e.stopPropagation(); toggle(item(b)); });
-  root.querySelectorAll('.qbtn').forEach(b => b.onclick = e => {
-    e.stopPropagation(); const it = item(b);
-    if (!cur) playItem(it); else { queue.push(it); toast('In de wachtrij: ' + it.title); sync(); }
-  });
+  root.querySelectorAll('.songctl .playbtn').forEach(b => b.onclick = e => { e.stopPropagation(); toggle(item(b)); });
+  root.querySelectorAll('.qbtn').forEach(b => b.onclick = e => { e.stopPropagation(); const r = b.getBoundingClientRect(); openMenu(item(b), r.left, r.bottom + 4); });
+  root.querySelectorAll('tr[data-id]').forEach(tr => { const b = tr.querySelector('.qbtn'); if (b) tr.addEventListener('contextmenu', e => { e.preventDefault(); openMenu(item(b), e.clientX, e.clientY); }); });
   sync();
 }
 const toast = t => { const e = $('#toast'); e.textContent = t; e.classList.add('show'); setTimeout(()=>e.classList.remove('show'), 1400); };
