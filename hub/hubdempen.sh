@@ -109,11 +109,37 @@ var fadeGen = 0
 
 func stopFade() { if let t = fadeTarget { setVol(t); fadeTarget = nil }; fadeGen += 1 }
 
-func resumeWithFade() {
-    let target = getVol()
+var pausePending = false
+func pauseWithFade() {
+    let start = fadeTarget ?? getVol()
     fadeGen += 1; let gen = fadeGen
-    if let t = target, t > 0.01 { fadeTarget = t; setVol(0) }
-    pressPlayPause()
+    guard let t = start, t > 0.01 else { pressPlayPause(); return }
+    fadeTarget = t; pausePending = true
+    let cur = getVol() ?? t
+    let steps = 14, dur = 0.7
+    for i in 1...steps {
+        DispatchQueue.main.asyncAfter(deadline: .now() + dur * Double(i) / Double(steps)) {
+            guard gen == fadeGen else { return }
+            let f = 1 - Float32(i) / Float32(steps)
+            setVol(cur * f * f)
+            if i == steps {
+                pausePending = false
+                pressPlayPause()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    guard gen == fadeGen else { return }
+                    setVol(t); fadeTarget = nil
+                }
+            }
+        }
+    }
+}
+
+func resumeWithFade() {
+    let target = fadeTarget ?? getVol()
+    fadeGen += 1; let gen = fadeGen
+    let wasPending = pausePending; pausePending = false
+    if let t = target, t > 0.01 { fadeTarget = t; if !wasPending { setVol(0) } }
+    if !wasPending { pressPlayPause() }
     guard let t = target, t > 0.01 else { return }
     let steps = 25
     for i in 1...steps {
@@ -134,8 +160,7 @@ timer.setEventHandler {
     let held = Date().timeIntervalSince(rawSince)
     if rawMic && !stableMic && held >= micOnStable {
         stableMic = true
-        if fadeTarget != nil { stopFade() }
-        if !weePaused && s.playing { pressPlayPause(); weePaused = true }   // v5: overal, ook bij Jarvis
+        if !weePaused && s.playing { weePaused = true; pauseWithFade() }   // v5: overal, ook bij Jarvis
     } else if !rawMic && stableMic && held >= micOffStable {
         stableMic = false
         hubPauze = false
@@ -152,7 +177,7 @@ if let listener = try? NWListener(using: params) {
         c.start(queue: .main)
         c.receive(minimumIncompleteLength: 1, maximumLength: 8192) { _, _, _, _ in
             let s = state()
-            let body = "{\"versie\":5,\"hubPauze\":\(hubPauze),\"mic\":\(s.mic),\"micStabiel\":\(stableMic),\"playing\":\(s.playing),\"wijPauzeerden\":\(weePaused),\"toegang\":\(AXIsProcessTrusted()),\"who\":\"\(s.who)\"}"
+            let body = "{\"versie\":6,\"hubPauze\":\(hubPauze),\"mic\":\(s.mic),\"micStabiel\":\(stableMic),\"playing\":\(s.playing),\"wijPauzeerden\":\(weePaused),\"toegang\":\(AXIsProcessTrusted()),\"who\":\"\(s.who)\"}"
             let resp = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Private-Network: true\r\nCache-Control: no-store\r\nConnection: close\r\nContent-Length: \(body.utf8.count)\r\n\r\n" + body
             c.send(content: resp.data(using: .utf8), completion: .contentProcessed { _ in c.cancel() })
         }
