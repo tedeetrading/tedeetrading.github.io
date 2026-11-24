@@ -286,8 +286,20 @@ function next() { const n = queue.shift(); if (n) playItem(n); else { player.pau
 function prev() { if (player.currentTime > 3 || !hist.length) { player.currentTime = 0; return; } if (cur) queue.unshift(cur); playItem(hist.pop(), true); }
 function addToQueue(it) { if (!cur) return playItem(it); queue.push(it); prefetchNext(); toast('Toegevoegd aan wachtrij'); sync(); }
 ['play','pause'].forEach(ev => player.addEventListener(ev, () => { sync(); mediaSession(); }));
-// Automatisch pauzeren bij microfoon doet nu het Mac-hulpprogramma zelf (⏯-toets), voor alle apps.
-let autoPaused = false;
+// Automatisch pauzeren: het Mac-hulpprogramma "HubDempen" drukt zelf ⏯ bij een microfoon uit een app (Claude).
+// Komt de microfoon uit de browser (bv. Jarvis die praat), dan meldt het hubPauze en pauzeert de Hub zichzelf,
+// en speelt daarna verder met het volume rustig oplopend.
+let autoPaused = false, fadeTimer = null;
+function fadeIn(sec = 2) {
+  clearInterval(fadeTimer); player.volume = 0; const t0 = Date.now();
+  fadeTimer = setInterval(() => { const f = Math.min(1, (Date.now() - t0) / (sec * 1000)); player.volume = f * f; if (f >= 1) clearInterval(fadeTimer); }, 50);
+}
+setInterval(async () => {
+  if (!cur) return;
+  let st; try { const r = await fetch('http://127.0.0.1:47321/state', { cache: 'no-store' }); st = await r.json(); } catch (e) { return; }
+  if (st.hubPauze) { if (!player.paused) { autoPaused = true; clearInterval(fadeTimer); player.volume = 1; player.pause(); } }
+  else if (autoPaused) { autoPaused = false; if (player.paused) { fadeIn(2); player.play().catch(() => {}); } }
+}, 400);
 player.addEventListener('ended', next);
 player.addEventListener('timeupdate', () => { const r = $('#pSeek'); if (r && !r.dragging) { r.max = player.duration || 0; r.value = player.currentTime; r.style.setProperty('--p', (player.duration ? player.currentTime / player.duration * 100 : 0) + '%'); $('#pT').textContent = fmt(player.currentTime); $('#pD').textContent = fmt(player.duration); } });
 function sync() {

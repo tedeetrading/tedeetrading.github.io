@@ -1,5 +1,5 @@
 #!/bin/bash
-# "Hub dempen" v3: pauzeert ALLE muziek/video op je Mac zodra een microfoon (stabiel) aan staat,
+# "Hub dempen" v4: pauzeert ALLE muziek/video op je Mac zodra een microfoon (stabiel) aan staat,
 # en zet het daarna weer aan met het volume rustig oplopend (±2 s).
 # Jarvis gebruikt dezelfde truc: hij zet de microfoon stil aan zolang hij praat.
 # Draait alleen op je eigen computer. Verwijderen: bash verwijder-hub-dempen.sh
@@ -102,6 +102,8 @@ _ = AXIsProcessTrustedWithOptions(opts)
 var rawMic = false, rawSince = Date()
 var stableMic = false
 var weePaused = false
+var hubPauze = false   // microfoon vanuit een browser (bv. Jarvis): geen ⏯-toets, de Hub pauzeert zichzelf
+let browsers = ["com.google.Chrome", "com.apple.Safari", "com.apple.WebKit", "company.thebrowser", "org.mozilla", "com.microsoft.edgemac", "com.brave", "com.operasoftware"]
 var fadeTarget: Float32? = nil
 var fadeGen = 0
 
@@ -133,9 +135,12 @@ timer.setEventHandler {
     if rawMic && !stableMic && held >= micOnStable {
         stableMic = true
         if fadeTarget != nil { stopFade() }
-        if !weePaused && s.playing { pressPlayPause(); weePaused = true }
+        if browsers.contains(where: { s.who.hasPrefix($0) }) {
+            hubPauze = true   // ⏯ zou in Chrome de pratende pagina (Jarvis) stoppen i.p.v. de muziek
+        } else if !weePaused && s.playing { pressPlayPause(); weePaused = true }
     } else if !rawMic && stableMic && held >= micOffStable {
         stableMic = false
+        hubPauze = false
         if weePaused { weePaused = false; resumeWithFade() }
     }
 }
@@ -149,7 +154,7 @@ if let listener = try? NWListener(using: params) {
         c.start(queue: .main)
         c.receive(minimumIncompleteLength: 1, maximumLength: 8192) { _, _, _, _ in
             let s = state()
-            let body = "{\"versie\":3,\"mic\":\(s.mic),\"micStabiel\":\(stableMic),\"playing\":\(s.playing),\"wijPauzeerden\":\(weePaused),\"toegang\":\(AXIsProcessTrusted()),\"who\":\"\(s.who)\"}"
+            let body = "{\"versie\":4,\"hubPauze\":\(hubPauze),\"mic\":\(s.mic),\"micStabiel\":\(stableMic),\"playing\":\(s.playing),\"wijPauzeerden\":\(weePaused),\"toegang\":\(AXIsProcessTrusted()),\"who\":\"\(s.who)\"}"
             let resp = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Private-Network: true\r\nCache-Control: no-store\r\nConnection: close\r\nContent-Length: \(body.utf8.count)\r\n\r\n" + body
             c.send(content: resp.data(using: .utf8), completion: .contentProcessed { _ in c.cancel() })
         }
