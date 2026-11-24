@@ -281,11 +281,25 @@ async function playItem(item, fromBack) {
   try { await player.play(); } catch (e) { toast('Afspelen lukt niet: ' + e.message); }
   mediaSession(); prefetchNext(); sync();
 }
-function toggle(item) { if (cur && cur.audio === item.audio) { player.paused ? player.play() : player.pause(); } else playItem(item); }
+function toggle(item) { autoPaused = false; if (cur && cur.audio === item.audio) { player.paused ? player.play() : player.pause(); } else playItem(item); }
 function next() { const n = queue.shift(); if (n) playItem(n); else { player.pause(); player.currentTime = 0; sync(); } }
 function prev() { if (player.currentTime > 3 || !hist.length) { player.currentTime = 0; return; } if (cur) queue.unshift(cur); playItem(hist.pop(), true); }
 function addToQueue(it) { if (!cur) return playItem(it); queue.push(it); prefetchNext(); toast('Toegevoegd aan wachtrij'); sync(); }
 ['play','pause'].forEach(ev => player.addEventListener(ev, () => { sync(); mediaSession(); }));
+// Automatisch pauzeren: het Mac-hulpprogramma "Hub dempen" (127.0.0.1:47321) meldt of een microfoon aan staat
+// of een andere app geluid maakt. Dan pauzeert de Hub, en daarna speelt hij vanzelf verder.
+let autoPaused = false, clearSince = 0;
+setInterval(async () => {
+  if (!cur) return;
+  let st; try { const r = await fetch('http://127.0.0.1:47321/state', { cache: 'no-store' }); st = await r.json(); } catch (e) { return; }
+  if (st.mic || st.other) {
+    clearSince = 0;
+    if (!player.paused) { autoPaused = true; player.pause(); toast(st.mic ? 'Pauze: microfoon aan' : 'Pauze: andere app speelt geluid'); }
+  } else if (autoPaused && player.paused) {
+    if (!clearSince) clearSince = Date.now();
+    else if (Date.now() - clearSince > 1200) { autoPaused = false; clearSince = 0; player.play().catch(() => {}); }
+  }
+}, 600);
 player.addEventListener('ended', next);
 player.addEventListener('timeupdate', () => { const r = $('#pSeek'); if (r && !r.dragging) { r.max = player.duration || 0; r.value = player.currentTime; r.style.setProperty('--p', (player.duration ? player.currentTime / player.duration * 100 : 0) + '%'); $('#pT').textContent = fmt(player.currentTime); $('#pD').textContent = fmt(player.duration); } });
 function sync() {
