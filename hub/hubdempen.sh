@@ -135,9 +135,7 @@ timer.setEventHandler {
     if rawMic && !stableMic && held >= micOnStable {
         stableMic = true
         if fadeTarget != nil { stopFade() }
-        if browsers.contains(where: { s.who.hasPrefix($0) }) {
-            hubPauze = true   // ⏯ zou in Chrome de pratende pagina (Jarvis) stoppen i.p.v. de muziek
-        } else if !weePaused && s.playing { pressPlayPause(); weePaused = true }
+        if !weePaused && s.playing { pressPlayPause(); weePaused = true }   // v5: overal, ook bij Jarvis
     } else if !rawMic && stableMic && held >= micOffStable {
         stableMic = false
         hubPauze = false
@@ -154,7 +152,7 @@ if let listener = try? NWListener(using: params) {
         c.start(queue: .main)
         c.receive(minimumIncompleteLength: 1, maximumLength: 8192) { _, _, _, _ in
             let s = state()
-            let body = "{\"versie\":4,\"hubPauze\":\(hubPauze),\"mic\":\(s.mic),\"micStabiel\":\(stableMic),\"playing\":\(s.playing),\"wijPauzeerden\":\(weePaused),\"toegang\":\(AXIsProcessTrusted()),\"who\":\"\(s.who)\"}"
+            let body = "{\"versie\":5,\"hubPauze\":\(hubPauze),\"mic\":\(s.mic),\"micStabiel\":\(stableMic),\"playing\":\(s.playing),\"wijPauzeerden\":\(weePaused),\"toegang\":\(AXIsProcessTrusted()),\"who\":\"\(s.who)\"}"
             let resp = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Private-Network: true\r\nCache-Control: no-store\r\nConnection: close\r\nContent-Length: \(body.utf8.count)\r\n\r\n" + body
             c.send(content: resp.data(using: .utf8), completion: .contentProcessed { _ in c.cancel() })
         }
