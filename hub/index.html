@@ -292,7 +292,9 @@ let autoPaused = false, clearSince = 0;
 setInterval(async () => {
   if (!cur) return;
   let st; try { const r = await fetch('http://127.0.0.1:47321/state', { cache: 'no-store' }); st = await r.json(); } catch (e) { return; }
-  if (st.mic || st.other) {
+  // De Claude-app houdt zijn geluidskanaal altijd open (ook als hij stil is), dus die telt alleen via de microfoon.
+  const other = st.other && !/^com\.anthropic/.test(st.who || '');
+  if (st.mic || other) {
     clearSince = 0;
     if (!player.paused) { autoPaused = true; player.pause(); toast(st.mic ? 'Pauze: microfoon aan' : 'Pauze: andere app speelt geluid'); }
   } else if (autoPaused && player.paused) {
