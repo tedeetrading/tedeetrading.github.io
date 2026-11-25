@@ -55,6 +55,14 @@
   .morebtns { display:flex; gap:8px; margin-top:4px; }
   .morebtns .btn { text-decoration:none; font-size:13px; padding:8px 12px; }
   .pill.ok { color:#111; background:var(--sun); border-color:var(--sun); }
+  .niche { display:inline-block; font-size:12px; padding:2px 9px; border-radius:999px; border:1px solid var(--line); color:var(--dim); background:none; cursor:pointer; margin-left:8px; vertical-align:middle; }
+  .niche.set { color:#2a1a00; background:#FAC775; border-color:#FAC775; }
+  select.nichesel { font-size:13px; background:var(--card); color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:3px 6px; margin-left:8px; }
+  .tree { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; margin-bottom:18px; }
+  .tree .card h3 { font-size:14px; margin:0 0 8px; color:var(--txt); font-weight:600; }
+  .np { display:inline-block; font-size:12px; padding:3px 9px; border-radius:999px; margin:3px 3px 0 0; border:1px solid var(--line); color:var(--dim); cursor:pointer; background:none; }
+  .np.has { color:#2a1a00; background:#FAC775; border-color:#FAC775; }
+  .np.on { outline:2px solid var(--sun); outline-offset:1px; }
   .idtag { font-size:11px; color:var(--dim); margin-left:4px; }
   .idtag:empty::before { content: attr(data-ph); opacity:.5; }
   td { white-space:normal; }
@@ -247,6 +255,31 @@ const moreCell = (table, row, extra) => {
   </div></td>`;
 };
 // Songs: afspelen + uploaden (privé opslag 'hub-songs', alleen voor ingelogde Hub-gebruikers)
+const NICHES = {
+  'Chicago / klassiek': ['Chicago house','Acid house','Hip house','Ghetto house','Jackin house'],
+  'Deep en soulful': ['Deep house','Soulful house','Vocal house','Garage house','Lo-fi house'],
+  'Tech': ['Tech house','Minimal house','Microhouse','Afro tech','Melodic techno'],
+  'Progressive en melodic': ['Progressive house','Melodic house','Organic house','Chill house'],
+  'EDM en electro': ['Electro house','Big room','Future house','Bass house','Slap house','Tropical house','Dutch house','Fidget house'],
+  'Disco-wortels': ['French house','Disco house','Nu-disco','Funky house','Italo house'],
+  'Afrika en Latijns': ['Kwaito','Afro house','Amapiano','Gqom','Tribal house','Latin house'],
+  'UK': ['UK garage','Speed garage','2-step','UK funky','Bassline','Hard house'],
+};
+const nicheCtl = v => v.soort === 'song' ? `<button class="niche ${v.niche ? 'set' : ''}" data-nid="${v.id}" title="Niche kiezen">${esc(v.niche || '+ niche')}</button>` : '';
+function nicheHandlers(root, after) {
+  root.querySelectorAll('button.niche').forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const cur = b.classList.contains('set') ? b.textContent : '';
+    const sel = document.createElement('select'); sel.className = 'nichesel';
+    sel.innerHTML = '<option value="">— geen niche —</option>' + Object.entries(NICHES).map(([g, l]) =>
+      `<optgroup label="${esc(g)}">${l.map(n => `<option ${n === cur ? 'selected' : ''}>${esc(n)}</option>`).join('')}</optgroup>`).join('');
+    b.replaceWith(sel); sel.focus();
+    const done = async () => { const val = sel.value || null; await save('hub_videos', { id: +b.dataset.nid }, 'niche', val);
+      b.textContent = val || '+ niche'; b.classList.toggle('set', !!val); sel.replaceWith(b); if (after) after(); };
+    sel.onchange = done; sel.onblur = () => { if (sel.isConnected) sel.replaceWith(b); };
+    sel.onclick = e2 => e2.stopPropagation();
+  });
+}
 const songCtl = v => v.audio ? `<span class="songctl"><button class="playbtn" data-audio="${esc(v.audio)}" data-title="${esc(v.titel)}" title="Afspelen">▶</button><button class="qbtn" data-audio="${esc(v.audio)}" data-title="${esc(v.titel)}" title="Meer opties">⋯</button></span>` : '';
 // Speler zoals Spotify: ⋯-menu (Afspelen / Toevoegen aan wachtrij), spelerbalk onderin, wachtrijpaneel.
 // Eén echt <audio>-element in de pagina: speelt door als het scherm uit gaat (Safari/Chrome op de telefoon).
@@ -372,7 +405,7 @@ const TABS = {
     const vRows = sep((vids||[]).map(v => ({ d: v.datum, v })), 5, ({ d, v }) => {
       const m = esc(JSON.stringify({id:v.id})), big = v.soort !== 'song';
       return `<tr data-id="${v.id}" class="${d===today?'today':''}"><td class="c-date ${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>${kanaalCell(v.soort)}
-        <td class="c-video ${big?'b':''}">${titleCell('hub_videos', v)}${songCtl(v)}</td><td class="c-len">${esc(v.lengte)}</td>
+        <td class="c-video ${big?'b':''}">${titleCell('hub_videos', v)}${nicheCtl(v)}${songCtl(v)}</td><td class="c-len">${esc(v.lengte)}</td>
         <td class="c-status">${statusTag('hub_videos', v)}</td>${moreCell('hub_videos', v, {kanaal: kanalen(v.soort).join(', '), lenLabel:'Lengte', len: v.lengte})}</tr>`; });
     const sRows = sep((sh||[]).map(x => ({ d: x.datum, x })), 5, ({ d, x }) =>
       `<tr data-id="${x.id}" class="${d===today?'today':''}"><td class="c-date ${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>
@@ -430,7 +463,7 @@ const TABS = {
     };
     $('#shiftMin').onclick = () => shift(-1);
     $('#shiftPlus').onclick = () => shift(1);
-    editable($('#view')); songHandlers($('#view'));
+    editable($('#view')); songHandlers($('#view')); nicheHandlers($('#view'));
     const shuffleAll = e => { e.stopPropagation();
       const items = [...$('#view').querySelectorAll('.songctl .playbtn')].map(b => ({ audio: b.dataset.audio, title: b.dataset.title }));
       if (!items.length) return toast('Nog niets om af te spelen');
@@ -479,6 +512,27 @@ const TABS = {
     editable($('#view'));
   },
   async Shorts() { return TABS.Planning('shorts'); },
+  async Niches() {
+    const { data } = await sb.from('hub_videos').select('*').eq('soort', 'song').order('datum');
+    const songs = data || []; let filt = new Set();
+    const cnt = n => songs.filter(v => v.niche === n).length;
+    const render = () => {
+      const list = filt.size ? songs.filter(v => filt.has(v.niche)) : songs;
+      const tree = Object.entries(NICHES).map(([g, l]) => `<div class="card"><h3>${esc(g)}</h3>${l.map(n =>
+        `<button class="np ${cnt(n) ? 'has' : ''} ${filt.has(n) ? 'on' : ''}" data-n="${esc(n)}">${esc(n)}${cnt(n) ? ' · ' + cnt(n) : ''}</button>`).join('')}</div>`).join('');
+      const rows = list.map(v => `<tr data-id="${v.id}"><td class="c-date">${nlDatum(v.datum)}</td><td class="c-video">${esc(v.titel)}${nicheCtl(v)}${songCtl(v)}</td><td class="c-len">${esc(v.lengte || '')}</td><td class="c-status">${esc(v.status || '')}</td></tr>`).join('');
+      $('#view').innerHTML = `<h2>Niches — stamboom van house</h2>
+        <p class="muted">Disco + funk (jaren 70) → Chicago house (1984) → deze takken. Geel = er zijn songs in deze niche (met aantal). Klik niches aan om de songs te filteren, bv. om de songs voor de weekmix te kiezen.</p>
+        <div class="tree">${tree}</div>
+        <div style="display:flex;align-items:center;gap:10px;margin:6px 0 10px"><h2 style="margin:0">Songs ${filt.size ? '(' + list.length + ' van ' + songs.length + ')' : '(' + songs.length + ')'}</h2><span class="spacer"></span>${filt.size ? '<button class="btn ghost" id="nClear">Filter wissen</button>' : ''}</div>
+        <table><tr><th>Datum</th><th>Song · niche</th><th>Lengte</th><th>Status</th></tr>${rows || '<tr><td colspan="4" class="muted">Geen songs in deze niche.</td></tr>'}</table>`;
+      $('#view').querySelectorAll('.np').forEach(b => b.onclick = () => { const n = b.dataset.n; filt.has(n) ? filt.delete(n) : filt.add(n); render(); });
+      const c = $('#nClear'); if (c) c.onclick = () => { filt = new Set(); render(); };
+      songHandlers($('#view'));
+      nicheHandlers($('#view'), async () => { const r = await sb.from('hub_videos').select('*').eq('soort', 'song').order('datum'); songs.splice(0, songs.length, ...(r.data || [])); render(); });
+    };
+    render();
+  },
   async Shots() {
     const { data } = await sb.from('hub_shots').select('*').order('video').order('nr');
     const groups = {};
