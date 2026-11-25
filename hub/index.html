@@ -265,7 +265,7 @@ const NICHES = {
   'Afrika en Latijns': ['Kwaito','Afro house','Amapiano','Gqom','Tribal house','Latin house'],
   'UK': ['UK garage','Speed garage','2-step','UK funky','Bassline','Hard house'],
 };
-const nicheCtl = v => v.soort === 'song' ? `<button class="niche ${v.niche ? 'set' : ''}" data-nid="${v.id}" title="Niche kiezen">${esc(v.niche || '+ niche')}</button>` : '';
+const nicheCtl = v => v.soort !== 'short' ? `<button class="niche ${v.niche ? 'set' : ''}" data-nid="${v.id}" title="Niche kiezen">${esc(v.niche || '+ niche')}</button>` : '';
 function nicheHandlers(root, after) {
   root.querySelectorAll('button.niche').forEach(b => b.onclick = e => {
     e.stopPropagation();
@@ -513,7 +513,7 @@ const TABS = {
   },
   async Shorts() { return TABS.Planning('shorts'); },
   async Niches() {
-    const { data } = await sb.from('hub_videos').select('*').eq('soort', 'song').order('datum');
+    const { data } = await sb.from('hub_videos').select('*').neq('soort', 'short').order('datum');
     const songs = data || []; let filt = new Set();
     const cnt = n => songs.filter(v => v.niche === n).length;
     const render = () => {
@@ -522,14 +522,14 @@ const TABS = {
         `<button class="np ${cnt(n) ? 'has' : ''} ${filt.has(n) ? 'on' : ''}" data-n="${esc(n)}">${esc(n)}${cnt(n) ? ' · ' + cnt(n) : ''}</button>`).join('')}</div>`).join('');
       const rows = list.map(v => `<tr data-id="${v.id}"><td class="c-date">${nlDatum(v.datum)}</td><td class="c-video">${esc(v.titel)}${nicheCtl(v)}${songCtl(v)}</td><td class="c-len">${esc(v.lengte || '')}</td><td class="c-status">${esc(v.status || '')}</td></tr>`).join('');
       $('#view').innerHTML = `<h2>Niches — stamboom van house</h2>
-        <p class="muted">Disco + funk (jaren 70) → Chicago house (1984) → deze takken. Geel = er zijn songs in deze niche (met aantal). Klik niches aan om de songs te filteren, bv. om de songs voor de weekmix te kiezen.</p>
+        <p class="muted">Disco + funk (jaren 70) → Chicago house (1984) → deze takken. Geel = er zijn songs in deze niche (met aantal). Klik niches aan om songs en sets te filteren, bv. om de songs voor de weekmix te kiezen.</p>
         <div class="tree">${tree}</div>
-        <div style="display:flex;align-items:center;gap:10px;margin:6px 0 10px"><h2 style="margin:0">Songs ${filt.size ? '(' + list.length + ' van ' + songs.length + ')' : '(' + songs.length + ')'}</h2><span class="spacer"></span>${filt.size ? '<button class="btn ghost" id="nClear">Filter wissen</button>' : ''}</div>
+        <div style="display:flex;align-items:center;gap:10px;margin:6px 0 10px"><h2 style="margin:0">Songs &amp; sets ${filt.size ? '(' + list.length + ' van ' + songs.length + ')' : '(' + songs.length + ')'}</h2><span class="spacer"></span>${filt.size ? '<button class="btn ghost" id="nClear">Filter wissen</button>' : ''}</div>
         <table><tr><th>Datum</th><th>Song · niche</th><th>Lengte</th><th>Status</th></tr>${rows || '<tr><td colspan="4" class="muted">Geen songs in deze niche.</td></tr>'}</table>`;
       $('#view').querySelectorAll('.np').forEach(b => b.onclick = () => { const n = b.dataset.n; filt.has(n) ? filt.delete(n) : filt.add(n); render(); });
       const c = $('#nClear'); if (c) c.onclick = () => { filt = new Set(); render(); };
       songHandlers($('#view'));
-      nicheHandlers($('#view'), async () => { const r = await sb.from('hub_videos').select('*').eq('soort', 'song').order('datum'); songs.splice(0, songs.length, ...(r.data || [])); render(); });
+      nicheHandlers($('#view'), async () => { const r = await sb.from('hub_videos').select('*').neq('soort', 'short').order('datum'); songs.splice(0, songs.length, ...(r.data || [])); render(); });
     };
     render();
   },
