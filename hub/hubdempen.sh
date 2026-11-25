@@ -160,11 +160,10 @@ timer.setEventHandler {
     let held = Date().timeIntervalSince(rawSince)
     if rawMic && !stableMic && held >= micOnStable {
         stableMic = true
-        if !weePaused && s.playing { weePaused = true; pauseWithFade() }   // v5: overal, ook bij Jarvis
+        hubPauze = true   // v7: alleen de Hub pauzeert zichzelf, nooit meer de mediatoets
     } else if !rawMic && stableMic && held >= micOffStable {
         stableMic = false
         hubPauze = false
-        if weePaused { weePaused = false; resumeWithFade() }
     }
 }
 timer.resume()
@@ -177,7 +176,7 @@ if let listener = try? NWListener(using: params) {
         c.start(queue: .main)
         c.receive(minimumIncompleteLength: 1, maximumLength: 8192) { _, _, _, _ in
             let s = state()
-            let body = "{\"versie\":6,\"hubPauze\":\(hubPauze),\"mic\":\(s.mic),\"micStabiel\":\(stableMic),\"playing\":\(s.playing),\"wijPauzeerden\":\(weePaused),\"toegang\":\(AXIsProcessTrusted()),\"who\":\"\(s.who)\"}"
+            let body = "{\"versie\":7,\"hubPauze\":\(hubPauze),\"mic\":\(s.mic),\"micStabiel\":\(stableMic),\"playing\":\(s.playing),\"wijPauzeerden\":\(weePaused),\"toegang\":\(AXIsProcessTrusted()),\"who\":\"\(s.who)\"}"
             let resp = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nAccess-Control-Allow-Private-Network: true\r\nCache-Control: no-store\r\nConnection: close\r\nContent-Length: \(body.utf8.count)\r\n\r\n" + body
             c.send(content: resp.data(using: .utf8), completion: .contentProcessed { _ in c.cancel() })
         }

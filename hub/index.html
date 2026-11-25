@@ -290,6 +290,8 @@ function addToQueue(it) { if (!cur) return playItem(it); queue.push(it); prefetc
 // Komt de microfoon uit de browser (bv. Jarvis die praat), dan meldt het hubPauze en pauzeert de Hub zichzelf,
 // en speelt daarna verder met het volume rustig oplopend.
 let autoPaused = false, fadeTimer = null;
+function fadeOut(sec = 0.7) { clearInterval(fadeTimer); const v0 = player.volume, t0 = Date.now();
+  fadeTimer = setInterval(() => { const f = Math.min(1, (Date.now() - t0) / (sec * 1000)); player.volume = v0 * (1 - f) * (1 - f); if (f >= 1) { clearInterval(fadeTimer); player.pause(); player.volume = 1; } }, 40); }
 function fadeIn(sec = 2) {
   clearInterval(fadeTimer); player.volume = 0; const t0 = Date.now();
   fadeTimer = setInterval(() => { const f = Math.min(1, (Date.now() - t0) / (sec * 1000)); player.volume = f * f; if (f >= 1) clearInterval(fadeTimer); }, 50);
@@ -297,8 +299,8 @@ function fadeIn(sec = 2) {
 setInterval(async () => {
   if (!cur) return;
   let st; try { const r = await fetch('http://127.0.0.1:47321/state', { cache: 'no-store' }); st = await r.json(); } catch (e) { return; }
-  if (st.hubPauze) { if (!player.paused) { autoPaused = true; clearInterval(fadeTimer); player.volume = 1; player.pause(); } }
-  else if (autoPaused) { autoPaused = false; if (player.paused) { fadeIn(2); player.play().catch(() => {}); } }
+  if (st.hubPauze) { if (!player.paused && !autoPaused) { autoPaused = true; fadeOut(0.7); } }
+  else if (autoPaused) { autoPaused = false; fadeIn(2); if (player.paused) player.play().catch(() => {}); }
 }, 400);
 player.addEventListener('ended', next);
 player.addEventListener('timeupdate', () => { const r = $('#pSeek'); if (r && !r.dragging) { r.max = player.duration || 0; r.value = player.currentTime; r.style.setProperty('--p', (player.duration ? player.currentTime / player.duration * 100 : 0) + '%'); $('#pT').textContent = fmt(player.currentTime); $('#pD').textContent = fmt(player.duration); } });
