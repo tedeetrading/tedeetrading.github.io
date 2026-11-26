@@ -57,6 +57,18 @@
   .pill.ok { color:#111; background:var(--sun); border-color:var(--sun); }
   .niche { display:inline-block; font-size:12px; padding:1px 8px; border-radius:999px; border:1px solid var(--line); color:var(--dim); background:none; cursor:pointer; white-space:nowrap; }
   .niche.set { color:#111; background:var(--sun); border-color:var(--sun); }
+  .rv { display:grid; grid-template-columns:minmax(0,460px) 1fr; gap:22px; align-items:start; }
+  @media (max-width:900px){ .rv{grid-template-columns:1fr} }
+  .rv video { width:100%; max-height:78vh; aspect-ratio:9/16; background:#000; border-radius:14px; display:block; object-fit:contain; }
+  .rvbar { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
+  .rvbar .btn { font-size:16px; padding:12px 18px; }
+  .btn.ok { background:#2fbf5b; color:#fff; } .btn.no { background:#d9434b; color:#fff; }
+  .rv textarea { width:100%; min-height:90px; padding:10px; border-radius:10px; border:1px solid var(--line); background:var(--card); color:var(--txt); font:15px/1.4 system-ui; }
+  .rvlist { display:grid; gap:6px; max-height:70vh; overflow:auto; }
+  .rvit { display:flex; gap:10px; align-items:center; padding:8px 10px; border:1px solid var(--line); border-radius:10px; background:var(--card); cursor:pointer; font-size:14px; }
+  .rvit.on { outline:2px solid var(--sun); }
+  .dot { width:10px; height:10px; border-radius:50%; background:#555; flex:none; } .dot.akkoord{background:#2fbf5b} .dot.feedback{background:var(--orange)} .dot.afgekeurd{background:#d9434b}
+  .rvhist { font-size:13px; color:var(--dim); margin-top:8px; display:grid; gap:4px; }
   .heart { background:none; border:0; cursor:pointer; font-size:18px; line-height:1; padding:0 2px; margin-left:8px; vertical-align:middle; color:var(--dim); opacity:.55; }
   .heart.on { color:#ff4d6d; opacity:1; }
   .heart:hover { opacity:1; }
@@ -549,6 +561,65 @@ const TABS = {
       const { error } = await sb.from('hub_todo').insert({ taak: v, wie: $('#newWho').value, volgorde: 99 }); toast(error ? 'Fout: ' + error.message : 'Toegevoegd'); if (!error) show(); };
     $('#addTask').onclick = add; $('#newTask').onkeydown = e => { if (e.key === 'Enter') add(); };
     editable($('#view'));
+  },
+  async Controle() {
+    const [man, { data: todo }] = await Promise.all([
+      fetch('review/review.json?' + Date.now()).then(r => r.ok ? r.json() : []).catch(() => []),
+      sb.from('hub_todo').select('*').like('taak', '🎬%').order('id')]);
+    const log = {}; (todo || []).forEach(t => (log[t.notitie] ||= []).push(t));
+    const stat = f => { const l = log[f] || []; const x = l[l.length - 1]; if (!x) return 'open';
+      return /^🎬 Akkoord/.test(x.taak) ? 'akkoord' : /^🎬 Afgekeurd/.test(x.taak) ? 'afgekeurd' : 'feedback'; };
+    const lab = { open:'Te controleren', akkoord:'Akkoord', feedback:'Feedback gegeven', afgekeurd:'Afgekeurd' };
+    let filter = window._rvf || 'open';
+    const items = () => man.filter(i => filter === 'alle' || stat(i.file) === filter);
+    let idx = Math.min(window._rvi || 0, Math.max(0, items().length - 1));
+    const counts = k => k === 'alle' ? man.length : man.filter(i => stat(i.file) === k).length;
+    const draw = () => {
+      const L = items(), it = L[idx];
+      const tabsF = ['open','feedback','akkoord','afgekeurd','alle'].map(k => `<button class="niche ${k===filter?'set':''}" data-f="${k}">${k==='alle'?'Alle':lab[k]} (${counts(k)})</button>`).join(' ');
+      if (!it) { $('#view').innerHTML = `<h2>Controle</h2><p>${tabsF}</p><p class="muted">Niets in deze lijst. ${filter==='open'?'Alles is gecontroleerd 🎉':''}</p>`; bind(); return; }
+      const hist = (log[it.file] || []).map(t => `<div>${esc(t.taak.replace(/^🎬 /,''))}${t.klaar && /Feedback/.test(t.taak) ? ' · ✅ verwerkt' : ''}</div>`).join('');
+      $('#view').innerHTML = `<h2>Controle</h2><p>${tabsF}</p>
+      <div class="rv"><div>
+        <video id="rvv" src="review/${encodeURI(it.file)}" controls autoplay loop playsinline></video>
+      </div><div>
+        <div class="muted">${idx+1} / ${L.length} · <span class="dot ${stat(it.file)}" style="display:inline-block"></span> ${lab[stat(it.file)]}</div>
+        <h2 style="margin:6px 0 2px">${esc(it.titel || it.file)}</h2>
+        <div class="muted">${esc(it.file)}${it.info ? ' · ' + esc(it.info) : ''}</div>
+        <div class="rvbar">
+          <button class="btn ok" id="rvok">✅ Akkoord</button>
+          <button class="btn no" id="rvno">❌ Afkeuren</button>
+          <button class="btn ghost" id="rvprev">←</button><button class="btn ghost" id="rvnext">→</button>
+        </div>
+        <textarea id="rvfb" placeholder="Feedback voor Claude (Enter = versturen, Shift+Enter = nieuwe regel)"></textarea>
+        <p><button class="btn" id="rvsend">Feedback versturen</button></p>
+        <div class="rvhist">${hist}</div>
+        <h2 style="margin-top:18px;font-size:15px">Lijst</h2>
+        <div class="rvlist">${L.map((x,i) => `<div class="rvit ${i===idx?'on':''}" data-i="${i}"><span class="dot ${stat(x.file)}"></span>${esc(x.titel || x.file)}</div>`).join('')}</div>
+      </div></div>`;
+      bind();
+    };
+    const go = d => { const n = items().length; if (!n) return; idx = (idx + d + n) % n; window._rvi = idx; draw(); };
+    const add = async (kind, txt) => {
+      const it = items()[idx]; const t = it.titel || it.file;
+      const taak = kind === 'ok' ? `🎬 Akkoord: ${t}` : kind === 'no' ? `🎬 Afgekeurd: ${t}${txt ? ' — ' + txt : ''}` : `🎬 Feedback ${t}: ${txt}`;
+      const { data, error } = await sb.from('hub_todo').insert({ taak, wie: 'Claude', notitie: it.file, klaar: kind === 'ok', volgorde: 99 }).select().single();
+      if (error) { toast('Fout: ' + error.message); return; }
+      (log[it.file] ||= []).push(data); toast(kind === 'ok' ? 'Akkoord' : 'Verstuurd naar Claude');
+      if (filter === 'open') { if (idx >= items().length) idx = Math.max(0, items().length - 1); } else go(1);
+      window._rvi = idx; draw();
+    };
+    const bind = () => {
+      document.querySelectorAll('[data-f]').forEach(b => b.onclick = () => { filter = window._rvf = b.dataset.f; idx = window._rvi = 0; draw(); });
+      document.querySelectorAll('.rvit').forEach(b => b.onclick = () => { idx = window._rvi = +b.dataset.i; draw(); });
+      if (!$('#rvok')) return;
+      $('#rvok').onclick = () => add('ok');
+      $('#rvno').onclick = () => add('no', $('#rvfb').value.trim());
+      $('#rvsend').onclick = () => { const v = $('#rvfb').value.trim(); if (v) add('fb', v); else $('#rvfb').focus(); };
+      $('#rvprev').onclick = () => go(-1); $('#rvnext').onclick = () => go(1);
+      $('#rvfb').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#rvsend').click(); } };
+    };
+    draw();
   },
   async Shorts() { return TABS.Planning('shorts'); },
   async Stijlen() {
