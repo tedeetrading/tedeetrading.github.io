@@ -183,6 +183,11 @@
   }
   #qpanel { position:fixed; right:0; top:0; bottom:calc(96px + env(safe-area-inset-bottom)); width:340px; max-width:92vw; background:#121110; border-left:1px solid var(--line); z-index:7; padding:18px; overflow:auto; }
   #qpanel[hidden] { display:none; }
+  #qpanel .qhead { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; } #qpanel .qhead h3 { margin:0; }
+  #qpanel .qx { background:#1e1b18; border:1px solid var(--line); color:var(--txt,#eee); width:36px; height:36px; border-radius:50%; font-size:16px; cursor:pointer; }
+  #qpanel .grip { color:var(--dim); font-weight:400; cursor:grab; touch-action:none; padding:0 4px; font-size:18px; }
+  #qpanel .qi[data-i] { user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; position:relative; }
+  #qpanel .qi.dragging { background:#2a2520; z-index:2; box-shadow:0 6px 18px #0008; } #qpanel .qi.over { box-shadow:inset 0 2px 0 var(--sun); }
   #qpanel h3 { margin:0 0 14px; font-size:18px; } #qpanel h4 { margin:18px 0 8px; font-size:14px; color:var(--dim); font-weight:600; }
   #qpanel .qi { display:flex; align-items:center; gap:8px; padding:8px; border-radius:6px; } #qpanel .qi:hover { background:#1e1b18; }
   #qpanel .qi span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } #qpanel .qi.now span { color:var(--sun); }
@@ -373,11 +378,30 @@ function sync() {
   const r = $('#pSeek'); r.oninput = () => { r.dragging = true; $('#pT').textContent = fmt(+r.value); r.style.setProperty('--p', (r.max > 0 ? r.value / r.max * 100 : 0) + '%'); }; r.onchange = () => { player.currentTime = +r.value; r.dragging = false; };
   const qp = $('#qpanel');
   if (!qp.hidden) {
-    qp.innerHTML = `<h3>Wachtrij</h3><h4>Nu aan het afspelen</h4><div class="qi now"><span>${esc(cur.title)}</span></div>
-      <h4>Hierna in wachtrij</h4>${queue.length ? queue.map((q, i) => `<div class="qi"><span>${esc(q.title)}</span><button data-pl="${i}" title="Nu afspelen">▶</button><button data-rm="${i}" title="Verwijderen uit wachtrij">✕</button></div>`).join('') + '<p><button class="btn ghost" id="qClear">Wachtrij wissen</button></p>' : '<p class="muted">Leeg. Klik bij een song op ⋯ → Toevoegen aan wachtrij.</p>'}`;
+    qp.innerHTML = `<div class="qhead"><h3>Wachtrij</h3><button class="qx" id="qClose" title="Sluiten">✕</button></div><h4>Nu aan het afspelen</h4><div class="qi now"><span>${esc(cur.title)}</span></div>
+      <h4>Hierna in wachtrij</h4>${queue.length ? queue.map((q, i) => `<div class="qi" data-i="${i}"><b class="grip" title="Vasthouden en slepen">≡</b><span>${esc(q.title)}</span><button data-pl="${i}" title="Nu afspelen">▶</button><button data-rm="${i}" title="Verwijderen uit wachtrij">✕</button></div>`).join('') + '<p><button class="btn ghost" id="qClear">Wachtrij wissen</button></p>' : '<p class="muted">Leeg. Klik bij een song op ⋯ → Toevoegen aan wachtrij.</p>'}`;
     qp.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { queue.splice(+b.dataset.rm, 1); sync(); });
     qp.querySelectorAll('[data-pl]').forEach(b => b.onclick = () => { const [it] = queue.splice(+b.dataset.pl, 1); playItem(it); });
     const c = $('#qClear'); if (c) c.onclick = () => { queue.length = 0; sync(); };
+    $('#qClose').onclick = () => { qp.hidden = true; sync(); };
+    // Vasthouden en slepen om de volgorde te wijzigen (telefoon: lang indrukken; computer: direct slepen aan ≡)
+    qp.querySelectorAll('.qi[data-i]').forEach(row => {
+      let timer = null, drag = false, from = +row.dataset.i, y0 = 0;
+      const rows = () => [...qp.querySelectorAll('.qi[data-i]')];
+      const start = e => { if (e.target.closest('button')) return; y0 = e.clientY;
+        const go = () => { drag = true; row.classList.add('dragging'); if (navigator.vibrate) navigator.vibrate(15); };
+        if (e.pointerType === 'mouse' || e.target.closest('.grip')) go(); else timer = setTimeout(go, 280);
+        row.setPointerCapture(e.pointerId); };
+      const move = e => { if (!drag) { if (Math.abs(e.clientY - y0) > 8) { clearTimeout(timer); } return; }
+        e.preventDefault(); row.style.transform = `translateY(${e.clientY - y0}px)`;
+        rows().forEach(r => r.classList.remove('over')); const t = rows().find(r => r !== row && (() => { const b = r.getBoundingClientRect(); return e.clientY > b.top && e.clientY < b.bottom; })()); if (t) t.classList.add('over'); };
+      const end = e => { clearTimeout(timer); if (!drag) return; drag = false;
+        const t = rows().find(r => r.classList.contains('over')); row.style.transform = '';
+        if (t) { const to = +t.dataset.i; const [it] = queue.splice(from, 1); queue.splice(to, 0, it); prefetchNext(); }
+        sync(); };
+      row.addEventListener('pointerdown', start); row.addEventListener('pointermove', move); row.addEventListener('pointerup', end); row.addEventListener('pointercancel', end);
+      row.addEventListener('touchmove', e => { if (drag) e.preventDefault(); }, { passive: false });
+    });
   }
 }
 function openMenu(it, x, y) {
