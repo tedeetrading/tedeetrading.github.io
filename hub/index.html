@@ -460,7 +460,8 @@ const TABS = {
     const stamp = x => x.updated_at || x.created_at || '';
     const allV = vids || [];
     const applyF = l => {
-      if (F === 'nieuw') return l.filter(x => stamp(x)).sort((a, b) => stamp(a) < stamp(b) ? 1 : -1);
+      if (F === 'nieuw') return l.filter(x => x.audio || x.youtube_id || isKl(x.status))
+        .sort((a, b) => stamp(a) !== stamp(b) ? (stamp(a) < stamp(b) ? 1 : -1) : (b.id - a.id));
       if (F === 'vanaf') return l.filter(x => x.datum >= today);
       if (F === 'klaar') return l.filter(x => isKl(x.status));
       if (F === 'open') return l.filter(x => !isKl(x.status));
