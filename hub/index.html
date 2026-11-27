@@ -538,7 +538,6 @@ const TABS = {
     };
     $('#fBtn').onclick = e => { e.stopPropagation(); $('#fmenu').hidden = !$('#fmenu').hidden; };
     $('#fmenu').querySelectorAll('[data-fo]').forEach(b => b.onclick = () => { try { localStorage.setItem(FK, b.dataset.fo); } catch (e) {} show(); });
-    document.addEventListener('click', () => { const m = $('#fmenu'); if (m) m.hidden = true; }, { once: true });
     $('#shiftMin').onclick = () => shift(-1);
     $('#shiftPlus').onclick = () => shift(1);
     editable($('#view')); songHandlers($('#view')); nicheHandlers($('#view')); heartHandlers($('#view'));
@@ -787,6 +786,9 @@ $('#setpw').onclick = async () => {
 let recovering = false;
 $('#out').onclick = async () => { await sb.auth.signOut(); start(); };
 window.addEventListener('hashchange', show);
+// filtermenu sluiten bij klik ernaast of Esc
+document.addEventListener('click', e => { const m = $('#fmenu'); if (m && !m.hidden && !e.target.closest('#fmenu,#fBtn')) m.hidden = true; });
+document.addEventListener('keydown', e => { const m = $('#fmenu'); if (e.key === 'Escape' && m) m.hidden = true; });
 sb.auth.onAuthStateChange((ev) => {
   if (ev === 'PASSWORD_RECOVERY') { recovering = true; $('#app').hidden = true; $('#login').hidden = false; $('#newpw').hidden = false; $('#msg').textContent = 'Kies een nieuw wachtwoord.'; return; }
   if (ev !== 'TOKEN_REFRESHED' && !recovering) start();
