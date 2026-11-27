@@ -69,6 +69,10 @@
   .rvit.on { outline:2px solid var(--sun); }
   .dot { width:10px; height:10px; border-radius:50%; background:#555; flex:none; } .dot.akkoord{background:#2fbf5b} .dot.feedback{background:var(--orange)} .dot.afgekeurd{background:#d9434b}
   .rvhist { font-size:13px; color:var(--dim); margin-top:8px; display:grid; gap:4px; }
+  .fmenu { position:absolute; right:0; top:calc(100% + 6px); z-index:5; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:6px; min-width:200px; display:grid; gap:2px; box-shadow:0 8px 24px #0008; }
+  .fopt { text-align:left; background:none; border:0; color:var(--txt); padding:8px 10px; border-radius:6px; cursor:pointer; font-size:14px; }
+  .fopt:hover { background:#221d17; } .fopt.on { color:#111; background:var(--sun); font-weight:600; }
+  .fsep { font-size:12px; color:var(--dim); padding:6px 10px 2px; border-top:1px solid var(--line); margin-top:4px; }
   .heart { background:none; border:0; cursor:pointer; font-size:18px; line-height:1; padding:0 2px; margin-left:8px; vertical-align:middle; color:var(--dim); opacity:.55; }
   .heart.on { color:#ff4d6d; opacity:1; }
   .heart:hover { opacity:1; }
@@ -450,36 +454,27 @@ const TABS = {
   async Planning(MODE = 'planning') {
     let [{ data: vids }, { data: sh }] = await Promise.all([
       sb.from('hub_videos').select('*').order('datum'), sb.from('hub_shorts').select('*').order('datum').order('tijd')]);
-    // ---- filter & sorteren ----
-    const FK = 'hubFilter_' + MODE; let F = {}; try { F = JSON.parse(localStorage.getItem(FK) || '{}'); } catch (e) {}
-    F = { sort: 'datum', per: 'alle', soort: 'alle', stijl: 'alle', status: 'alle', fav: false, ...F };
+    // ---- filter (uitklapmenu) ----
+    const FK = 'hubF_' + MODE; let F = 'datum'; try { F = localStorage.getItem(FK) || 'datum'; } catch (e) {}
     const isKl = st => /klaar|ingepland|live|✅/i.test(st||'');
-    const soortVan = v => v.soort === 'song' ? 'song' : /uurmix/i.test(v.titel||'') ? 'uurmix' : 'set';
-    const addD = n => { const x = new Date(today+'T12:00:00'); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); };
-    const perOk = d => F.per === 'alle' || (F.per === 'vanaf' ? d >= today : F.per === 'week' ? (d >= week(today) && d < addD(7 - ((new Date(today+'T12:00:00').getDay()+6)%7))) : F.per === '14' ? (d >= today && d <= addD(14)) : F.per === 'verleden' ? d < today : true);
-    const stOk = st => F.status === 'alle' || (F.status === 'klaar' ? isKl(st) && !/ingepland/i.test(st||'') : F.status === 'ingepland' ? /ingepland|live/i.test(st||'') : !isKl(st));
-    const added = x => x.created_at || x.id;
-    const applyF = (list, isVid) => {
-      let l = list.filter(x => perOk(x.datum) && stOk(x.status) && (!isVid || ((F.soort === 'alle' || soortVan(x) === F.soort)
-        && (F.stijl === 'alle' || (F.stijl === '—' ? !x.niche : x.niche === F.stijl)) && (!F.fav || x.liked))));
-      if (F.sort === 'nieuw') l = l.slice().sort((a, b) => added(a) < added(b) ? 1 : -1);
-      if (F.sort === 'datumdesc') l = l.slice().reverse();
-      return l; };
+    const stamp = x => x.updated_at || x.created_at || '';
     const allV = vids || [];
-    vids = applyF(allV, true); sh = applyF(sh || [], false);
-    const nActive = ['sort','per','soort','stijl','status'].filter(k => F[k] !== ({sort:'datum'})[k] && F[k] !== 'alle').length + (F.fav ? 1 : 0);
-    const opt = (k, pairs) => `<label class="muted">${pairs[0]}<select class="nichesel" data-fk="${k}">${pairs.slice(1).map(([v, l]) => `<option value="${esc(v)}" ${F[k]===v?'selected':''}>${esc(l)}</option>`).join('')}</select></label>`;
-    const stijlen = [...new Set(allV.map(v => v.niche).filter(Boolean))].sort();
-    const fPanel = `<div id="fpanel" class="card" style="display:none;margin-bottom:14px"><div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center">
-      ${opt('sort', ['Sorteren ', ['datum','Datum (oud → nieuw)'], ['datumdesc','Datum (nieuw → oud)'], ['nieuw','Laatst toegevoegd']])}
-      ${opt('per', ['Periode ', ['alle','Alles'], ['vanaf','Vanaf vandaag'], ['week','Deze week'], ['14','Komende 14 dagen'], ['verleden','Verleden']])}
-      ${MODE === 'shorts' ? '' : opt('soort', ['Soort ', ['alle','Alles'], ['set','Sets'], ['uurmix','Uurmixen'], ['song','Songs']])}
-      ${MODE === 'shorts' ? '' : opt('stijl', ['Stijl ', ['alle','Alle stijlen'], ...stijlen.map(n => [n, n]), ['—','Zonder stijl']])}
-      ${opt('status', ['Status ', ['alle','Alles'], ['klaar','Klaar'], ['ingepland','Ingepland / live'], ['open','Nog maken']])}
-      ${MODE === 'shorts' ? '' : `<label class="muted"><input type="checkbox" data-fk="fav" ${F.fav?'checked':''}> Alleen bangers ♥</label>`}
-      <button class="btn ghost" id="fReset" style="padding:6px 10px;font-size:13px">Wissen</button></div></div>`;
+    const applyF = l => {
+      if (F === 'nieuw') return l.filter(x => stamp(x)).sort((a, b) => stamp(a) < stamp(b) ? 1 : -1);
+      if (F === 'vanaf') return l.filter(x => x.datum >= today);
+      if (F === 'klaar') return l.filter(x => isKl(x.status));
+      if (F === 'open') return l.filter(x => !isKl(x.status));
+      if (F.startsWith('stijl:')) return l.filter(x => x.niche === F.slice(6));
+      return l; };
+    vids = applyF(allV); sh = applyF(sh || []);
+    const FL = { datum:'Op datum', nieuw:'Laatst toegevoegd', vanaf:'Vanaf vandaag', klaar:'Klaar', open:'Nog maken' };
+    const fLabel = F.startsWith('stijl:') ? F.slice(6) : FL[F];
+    const stijlen = MODE === 'shorts' ? [] : [...new Set(allV.map(v => v.niche).filter(Boolean))].sort();
+    const fItem = (k, l) => `<button class="fopt ${F===k?'on':''}" data-fo="${esc(k)}">${esc(l)}</button>`;
+    const fMenu = `<div class="fmenu" id="fmenu" hidden>${Object.entries(FL).map(([k, l]) => fItem(k, l)).join('')}
+      ${stijlen.length ? '<div class="fsep">Stijl</div>' + stijlen.map(n => fItem('stijl:' + n, n)).join('') : ''}</div>`;
     const sep = (list, cols, render) => { let r = '', prev = null;
-      for (const x of list) { const w = week(x.d); if (F.sort === 'datum' && prev && w !== prev) r += `<tr class="sep"><td colspan="${cols}"></td></tr>`; prev = w; r += render(x); }
+      for (const x of list) { const w = week(x.d); if (F !== 'nieuw' && prev && w !== prev) r += `<tr class="sep"><td colspan="${cols}"></td></tr>`; prev = w; r += render(x); }
       return r; };
     const vRows = sep((vids||[]).map(v => ({ d: v.datum, v })), 6, ({ d, v }) => {
       const m = esc(JSON.stringify({id:v.id})), big = v.soort !== 'song';
@@ -493,7 +488,7 @@ const TABS = {
         <h2 style="margin:0">${title}</h2><span class="spacer"></span><div class="tbar">
         <button class="btn ghost" id="shiftMin">◀ 1 dag<span class="lg"> eerder</span></button>
         <button class="btn ghost" id="shiftPlus">1 dag<span class="lg"> later</span> ▶</button>
-        <button class="btn ghost" id="fBtn">⚲ Filter${nActive ? ` (${nActive})` : ''}</button>
+        <span style="position:relative"><button class="btn ghost" id="fBtn">${esc(fLabel)} ▾</button>${fMenu}</span>
         <button class="btn ghost" id="selBtn">Selecteren</button>
         <button class="btn" id="swapBtn" hidden>Omwisselen (0/2)</button>${MODE === 'shorts' ? '' : '<button class="btn shufmob" id="shufBtn2">⤮ Shuffle</button>'}</div></div>`;
     const isKlaar = st => /klaar|ingepland|live|✅/i.test(st||'');
@@ -510,8 +505,8 @@ const TABS = {
       : kpi(V, [['Sets', V.filter(v => v.soort !== 'song' && !/uurmix/i.test(v.titel))], ['Uurmixen', V.filter(v => /uurmix/i.test(v.titel))], ['Songs', V.filter(v => v.soort === 'song')]]);
     const note = '<p class="muted">Titel met ↗ = staat op YouTube: klik om hem in Studio te openen. Status wijzigen: klik op het label, typ, Enter. YouTube-ID plakken: klik op +ID.</p>';
     $('#view').innerHTML = MODE === 'shorts'
-      ? bar('Shorts — 3 per dag') + fPanel + kpiHtml + `<table><tr><th>Datum</th><th>Tijd</th><th style="text-align:center">Kanaal</th><th>Short</th><th>Status</th></tr>${sRows}</table>` + note
-      : bar("Planning lange video's (18:00 NL)") + fPanel + kpiHtml + `<table><tr><th>Datum</th><th style="text-align:center">Kanaal</th><th>Video</th><th>Stijl</th><th>Lengte</th><th style="position:relative">Status<button class="shufbtn" id="shufBtn" title="Shuffle: alles in willekeurige volgorde afspelen"><svg viewBox="0 0 24 24"><path d="M17 3l4 4-4 4V8h-2.6l-2.9 3.9-1.25-1.67L13.4 6H17V3zM3 6h4.6l8.8 12H17v-3l4 4-4 4v-3h-3.6L5.6 8H3V6zm0 10h2.6l2.15-2.87L9 14.8 7.4 18H3v-2z"/></svg></button></th></tr>${vRows}</table>` + note;
+      ? bar('Shorts — 3 per dag') + kpiHtml + `<table><tr><th>Datum</th><th>Tijd</th><th style="text-align:center">Kanaal</th><th>Short</th><th>Status</th></tr>${sRows}</table>` + note
+      : bar("Planning lange video's (18:00 NL)") + kpiHtml + `<table><tr><th>Datum</th><th style="text-align:center">Kanaal</th><th>Video</th><th>Stijl</th><th>Lengte</th><th style="position:relative">Status<button class="shufbtn" id="shufBtn" title="Shuffle: alles in willekeurige volgorde afspelen"><svg viewBox="0 0 24 24"><path d="M17 3l4 4-4 4V8h-2.6l-2.9 3.9-1.25-1.67L13.4 6H17V3zM3 6h4.6l8.8 12H17v-3l4 4-4 4v-3h-3.6L5.6 8H3V6zm0 10h2.6l2.15-2.87L9 14.8 7.4 18H3v-2z"/></svg></button></th></tr>${vRows}</table>` + note;
     let selecting = false, sel = [];
     const tabel = MODE === 'shorts' ? 'hub_shorts' : 'hub_videos';
     const upd = () => { $('#swapBtn').textContent = `Omwisselen (${sel.length}/2)`; $('#swapBtn').disabled = sel.length !== 2; };
@@ -541,11 +536,9 @@ const TABS = {
       toast(error ? 'Fout: ' + error.message : (n > 0 ? 'Alles 1 dag later' : 'Alles 1 dag eerder'));
       if (!error) show();
     };
-    const fp = $('#fpanel'); if (nActive) fp.style.display = 'block';
-    $('#fBtn').onclick = () => { fp.style.display = fp.style.display === 'none' ? 'block' : 'none'; };
-    const saveF = () => { try { localStorage.setItem(FK, JSON.stringify(F)); } catch (e) {} show(); };
-    fp.querySelectorAll('[data-fk]').forEach(el => el.onchange = () => { F[el.dataset.fk] = el.type === 'checkbox' ? el.checked : el.value; saveF(); });
-    $('#fReset').onclick = () => { F = {}; saveF(); };
+    $('#fBtn').onclick = e => { e.stopPropagation(); $('#fmenu').hidden = !$('#fmenu').hidden; };
+    $('#fmenu').querySelectorAll('[data-fo]').forEach(b => b.onclick = () => { try { localStorage.setItem(FK, b.dataset.fo); } catch (e) {} show(); });
+    document.addEventListener('click', () => { const m = $('#fmenu'); if (m) m.hidden = true; }, { once: true });
     $('#shiftMin').onclick = () => shift(-1);
     $('#shiftPlus').onclick = () => shift(1);
     editable($('#view')); songHandlers($('#view')); nicheHandlers($('#view')); heartHandlers($('#view'));
