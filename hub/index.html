@@ -472,8 +472,10 @@ const TABS = {
     const upl = {}; // uploadmoment per audiobestand = wanneer de song/set is toegevoegd
     { try { const { data: fl } = await sb.storage.from('hub-songs').list('', { limit: 1000 }); (fl || []).forEach(f => upl[f.name] = f.created_at); } catch (e) {} }
     const applyF = l => {
-      if (F === 'nieuw') return l.filter(x => x.audio || x.youtube_id || isKl(x.status))
-        .sort((a, b) => { const A = upl[a.audio] || '', B = upl[b.audio] || ''; return A !== B ? (A < B ? 1 : -1) : (b.id - a.id); });
+      if (F === 'nieuw') { const has = x => !!(x.audio || x.youtube_id || isKl(x.status));
+        return [...l].sort((a, b) => { if (has(a) !== has(b)) return has(a) ? -1 : 1;
+          if (!has(a)) return (dagNr[a.id] || 0) - (dagNr[b.id] || 0);
+          const A = upl[a.audio] || '', B = upl[b.audio] || ''; return A !== B ? (A < B ? 1 : -1) : (b.id - a.id); }); }
       if (F === 'klaar') return l.filter(x => isKl(x.status));
       if (F === 'open') return l.filter(x => !isKl(x.status));
       if (F.startsWith('stijl:')) return l.filter(x => x.niche === F.slice(6));
