@@ -71,6 +71,12 @@
   .rvhist { font-size:13px; color:var(--dim); margin-top:8px; display:grid; gap:4px; }
   .fmenu { position:absolute; right:0; top:calc(100% + 6px); z-index:5; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:6px; min-width:200px; display:grid; gap:2px; box-shadow:0 8px 24px #0008; }
   .fmenu[hidden] { display:none; }
+  .vrow { display:flex; align-items:center; gap:8px; min-width:0; }
+  .vrow .ttl { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .vrow > .idtag { flex:0 0 110px; text-align:right; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .vrow .heart { flex:none; margin:0; } .vrow .songctl { flex:0 0 auto; min-width:78px; margin:0; justify-content:flex-start; }
+  .infoi { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; margin-left:6px; border-radius:50%; border:1px solid var(--dim); background:none; color:var(--dim); font:600 9px/1 Georgia,serif; font-style:italic; cursor:pointer; padding:0; vertical-align:middle; opacity:.7; }
+  .infoi:hover { opacity:1; color:var(--sun); border-color:var(--sun); }
   .fopt { text-align:left; background:none; border:0; color:var(--txt); padding:8px 10px; border-radius:6px; cursor:pointer; font-size:14px; }
   .fopt:hover { background:#221d17; } .fopt.on { color:#111; background:var(--sun); font-weight:600; }
   .fsep { font-size:12px; color:var(--dim); padding:6px 10px 2px; border-top:1px solid var(--line); margin-top:4px; }
@@ -113,7 +119,7 @@
     .c-date { grid-area:date; color:var(--dim); font-size:13px; }
     .c-status { grid-area:status; justify-self:end; }
     .c-status .pill { display:block; width:76px; box-sizing:border-box; text-align:center; font-size:11.5px; padding:4px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .c-video { display:contents; }
+    .c-video { display:contents; } .vrow { display:contents; } .songctl.ph { display:none; }
     .c-video .ttl { grid-area:title; font-size:17px; font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .c-video:not(.b) .ttl { font-weight:500; }
     .c-video .ttl a { font-size:17px; }
@@ -295,6 +301,8 @@ const NICHES = {
   'UK': ['UK garage','Speed garage','2-step','UK funky','Bassline','Hard house'],
 };
 const nicheCtl = v => v.soort !== 'short' ? `<button class="niche ${v.niche ? 'set' : ''}" data-nid="${v.id}" title="Stijl kiezen">${esc(v.niche || '+ stijl')}</button>` : '';
+const infoI = ts => { if (!ts) return ''; const t = new Date(ts).toLocaleDateString('nl-NL', { day:'numeric', month:'short', year:'numeric' });
+  return `<button class="infoi" data-info="In de Hub gezet op ${t}" title="In de Hub gezet op ${t}">i</button>`; };
 const heartCtl = v => v.soort !== 'short' ? `<button class="heart ${v.liked ? 'on' : ''}" data-hid="${v.id}" title="${v.liked ? 'Banger (klik om weg te halen)' : 'Markeer als banger'}">${v.liked ? '♥' : '♡'}</button>` : '';
 function heartHandlers(root, after) {
   root.querySelectorAll('button.heart').forEach(b => b.onclick = async e => {
@@ -461,7 +469,7 @@ const TABS = {
     const stamp = x => x.updated_at || x.created_at || '';
     const allV = vids || [];
     const upl = {}; // uploadmoment per audiobestand = wanneer de song/set is toegevoegd
-    if (F === 'nieuw') { try { const { data: fl } = await sb.storage.from('hub-songs').list('', { limit: 1000 }); (fl || []).forEach(f => upl[f.name] = f.created_at); } catch (e) {} }
+    { try { const { data: fl } = await sb.storage.from('hub-songs').list('', { limit: 1000 }); (fl || []).forEach(f => upl[f.name] = f.created_at); } catch (e) {} }
     const applyF = l => {
       if (F === 'nieuw') return l.filter(x => x.audio || x.youtube_id || isKl(x.status))
         .sort((a, b) => { const A = upl[a.audio] || '', B = upl[b.audio] || ''; return A !== B ? (A < B ? 1 : -1) : (b.id - a.id); });
@@ -482,12 +490,12 @@ const TABS = {
       return r; };
     const vRows = sep((vids||[]).map(v => ({ d: v.datum, v })), 6, ({ d, v }) => {
       const m = esc(JSON.stringify({id:v.id})), big = v.soort !== 'song';
-      return `<tr data-id="${v.id}" class="${d===today?'today':''}"><td class="c-date ${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>${kanaalCell(v.soort)}
-        <td class="c-video ${big?'b':''}">${titleCell('hub_videos', v)}${heartCtl(v)}${songCtl(v)}</td><td class="c-niche">${nicheCtl(v)}</td><td class="c-len">${esc(v.lengte)}</td>
+      return `<tr data-id="${v.id}" class="${d===today?'today':''}"><td class="c-date ${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}${infoI(upl[v.audio] || v.created_at)}</td>${kanaalCell(v.soort)}
+        <td class="c-video ${big?'b':''}"><div class="vrow">${titleCell('hub_videos', v)}${heartCtl(v)}${songCtl(v) || '<span class="songctl ph"></span>'}</div></td><td class="c-niche">${nicheCtl(v)}</td><td class="c-len">${esc(v.lengte)}</td>
         <td class="c-status">${statusTag('hub_videos', v)}</td>${moreCell('hub_videos', v, {kanaal: kanalen(v.soort).join(', '), lenLabel:'Lengte', len: v.lengte})}</tr>`; });
     const sRows = sep((sh||[]).map(x => ({ d: x.datum, x })), 5, ({ d, x }) =>
       `<tr data-id="${x.id}" class="${d===today?'today':''}"><td class="c-date ${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}</td>
-        <td class="c-len">${esc(x.tijd)}</td>${kanaalCell('short')}<td class="c-video">${titleCell('hub_shorts', x)}</td><td class="c-status">${statusTag('hub_shorts', x)}</td>${moreCell('hub_shorts', x, {kanaal: kanalen('short').join(', '), lenLabel:'Tijd', len: x.tijd})}</tr>`);
+        <td class="c-len">${esc(x.tijd)}</td>${kanaalCell('short')}<td class="c-video"><div class="vrow">${titleCell('hub_shorts', x)}</div></td><td class="c-status">${statusTag('hub_shorts', x)}</td>${moreCell('hub_shorts', x, {kanaal: kanalen('short').join(', '), lenLabel:'Tijd', len: x.tijd})}</tr>`);
     const bar = title => `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
         <h2 style="margin:0">${title}</h2><span class="spacer"></span><div class="tbar">
         <button class="btn ghost" id="shiftMin">◀ 1 dag<span class="lg"> eerder</span></button>
@@ -791,6 +799,7 @@ let recovering = false;
 $('#out').onclick = async () => { await sb.auth.signOut(); start(); };
 window.addEventListener('hashchange', show);
 // filtermenu sluiten bij klik ernaast of Esc
+document.addEventListener('click', e => { const ib = e.target.closest('.infoi'); if (ib) { e.stopPropagation(); toast(ib.dataset.info); } }, true);
 document.addEventListener('click', e => { const m = $('#fmenu'); if (m && !m.hidden && !e.target.closest('#fmenu,#fBtn')) m.hidden = true; });
 document.addEventListener('keydown', e => { const m = $('#fmenu'); if (e.key === 'Escape' && m) m.hidden = true; });
 sb.auth.onAuthStateChange((ev) => {
