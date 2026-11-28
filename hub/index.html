@@ -73,7 +73,7 @@
   .fmenu[hidden] { display:none; }
   .vrow { display:flex; align-items:center; gap:8px; min-width:0; }
   .vrow .ttl { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .vrow > .idtag { flex:0 0 110px; text-align:right; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .vrow > .idtag { display:none; }
   .vrow .heart { flex:none; margin:0; } .vrow .songctl { flex:0 0 auto; min-width:78px; margin:0; justify-content:flex-start; }
   .infoi { display:inline-flex; align-items:center; justify-content:center; width:14px; height:14px; margin-left:6px; border-radius:50%; border:1px solid var(--dim); background:none; color:var(--dim); font:600 9px/1 Georgia,serif; font-style:italic; cursor:pointer; padding:0; vertical-align:middle; opacity:.7; }
   .infoi:hover { opacity:1; color:var(--sun); border-color:var(--sun); }
@@ -515,7 +515,7 @@ const TABS = {
     const V = vids || [];
     const kpiHtml = MODE === 'shorts' ? kpi(sh || [], [])
       : kpi(V, [['Sets', V.filter(v => v.soort !== 'song' && !/uurmix/i.test(v.titel))], ['Uurmixen', V.filter(v => /uurmix/i.test(v.titel))], ['Songs', V.filter(v => v.soort === 'song')]]);
-    const note = '<p class="muted">Titel met ↗ = staat op YouTube: klik om hem in Studio te openen. Status wijzigen: klik op het label, typ, Enter. YouTube-ID plakken: klik op +ID.</p>';
+    const note = '<p class="muted">Titel met ↗ = staat op YouTube: klik om hem in Studio te openen. Status wijzigen: klik op het label, typ, Enter. YouTube-ID plakken: via ⋯ achter de regel.</p>';
     $('#view').innerHTML = MODE === 'shorts'
       ? bar('Shorts — 3 per dag') + kpiHtml + `<table><tr><th>Datum</th><th>Tijd</th><th style="text-align:center">Kanaal</th><th>Short</th><th>Status</th></tr>${sRows}</table>` + note
       : bar("Planning lange video's (18:00 NL)") + kpiHtml + `<table><tr><th>Datum</th><th style="text-align:center">Kanaal</th><th>Video</th><th>Stijl</th><th>Lengte</th><th style="position:relative">Status<button class="shufbtn" id="shufBtn" title="Shuffle: alles in willekeurige volgorde afspelen"><svg viewBox="0 0 24 24"><path d="M17 3l4 4-4 4V8h-2.6l-2.9 3.9-1.25-1.67L13.4 6H17V3zM3 6h4.6l8.8 12H17v-3l4 4-4 4v-3h-3.6L5.6 8H3V6zm0 10h2.6l2.15-2.87L9 14.8 7.4 18H3v-2z"/></svg></button></th></tr>${vRows}</table>` + note;
