@@ -462,35 +462,35 @@ function editable(el) {
 const TABS = {
   async Planning(MODE = 'planning') {
     let [{ data: vids }, { data: sh }] = await Promise.all([
-      sb.from('hub_videos').select('*').order('datum'), sb.from('hub_shorts').select('*').order('datum').order('tijd')]);
+      sb.from('hub_videos').select('*').order('datum').order('id'), sb.from('hub_shorts').select('*').order('datum').order('tijd')]);
     // ---- filter (uitklapmenu) ----
-    const FK = 'hubF_' + MODE; let F = 'datum'; try { F = localStorage.getItem(FK) || 'datum'; } catch (e) {}
+    const FK = 'hubF_' + MODE; let F = 'alles'; try { F = localStorage.getItem(FK) || 'alles'; } catch (e) {} if (F === 'vanaf') F = 'alles';
     const isKl = st => /klaar|ingepland|live|✅/i.test(st||'');
     const stamp = x => x.updated_at || x.created_at || '';
     const allV = vids || [];
+    const dagNr = {}; allV.forEach((v, i) => dagNr[v.id] = i + 1); // dag 1..60 = volgorde in de planning
     const upl = {}; // uploadmoment per audiobestand = wanneer de song/set is toegevoegd
     { try { const { data: fl } = await sb.storage.from('hub-songs').list('', { limit: 1000 }); (fl || []).forEach(f => upl[f.name] = f.created_at); } catch (e) {} }
     const applyF = l => {
       if (F === 'nieuw') return l.filter(x => x.audio || x.youtube_id || isKl(x.status))
         .sort((a, b) => { const A = upl[a.audio] || '', B = upl[b.audio] || ''; return A !== B ? (A < B ? 1 : -1) : (b.id - a.id); });
-      if (F === 'vanaf') return l.filter(x => x.datum >= today);
       if (F === 'klaar') return l.filter(x => isKl(x.status));
       if (F === 'open') return l.filter(x => !isKl(x.status));
       if (F.startsWith('stijl:')) return l.filter(x => x.niche === F.slice(6));
       return l; };
     vids = applyF(allV); sh = applyF(sh || []);
-    const FL = { datum:'Op datum', nieuw:'Laatst toegevoegd', vanaf:'Vanaf vandaag', klaar:'Klaar', open:'Nog maken' };
-    const fLabel = F.startsWith('stijl:') ? F.slice(6) : FL[F];
+    const FL = { nieuw:'Laatst toegevoegd', alles:'Alles', klaar:'Klaar', open:'Nog maken' };
+    const fLabel = F.startsWith('stijl:') ? F.slice(6) : (FL[F] || 'Op datum');
     const stijlen = MODE === 'shorts' ? [] : [...new Set(allV.map(v => v.niche).filter(Boolean))].sort();
     const fItem = (k, l) => `<button class="fopt ${F===k?'on':''}" data-fo="${esc(k)}">${esc(l)}</button>`;
     const fMenu = `<div class="fmenu" id="fmenu" hidden>${Object.entries(FL).map(([k, l]) => fItem(k, l)).join('')}
-      ${stijlen.length ? '<div class="fsep">Stijl</div>' + stijlen.map(n => fItem('stijl:' + n, n)).join('') : ''}</div>`;
+      ${stijlen.length ? '<div class="fsep">Stijl</div>' + stijlen.map(n => fItem('stijl:' + n, n)).join('') : ''}<div class="fsep">Overig</div>${fItem('datum', 'Op datum')}</div>`;
     const sep = (list, cols, render) => { let r = '', prev = null;
-      for (const x of list) { const w = week(x.d); if (F !== 'nieuw' && prev && w !== prev) r += `<tr class="sep"><td colspan="${cols}"></td></tr>`; prev = w; r += render(x); }
+      for (const x of list) { const w = x.wk ?? week(x.d); if (F !== 'nieuw' && prev && w !== prev) r += `<tr class="sep"><td colspan="${cols}"></td></tr>`; prev = w; r += render(x); }
       return r; };
-    const vRows = sep((vids||[]).map(v => ({ d: v.datum, v })), 6, ({ d, v }) => {
+    const vRows = sep((vids||[]).map(v => ({ d: v.datum, v, wk: Math.floor((dagNr[v.id] - 1) / 7) })), 6, ({ d, v }) => {
       const m = esc(JSON.stringify({id:v.id})), big = v.soort !== 'song';
-      return `<tr data-id="${v.id}" class="${d===today?'today':''}"><td class="c-date ${d===today?'b':''}">${nlDatum(d)}${d===today?' (vandaag)':''}${infoI(upl[v.audio] || v.created_at)}</td>${kanaalCell(v.soort)}
+      return `<tr data-id="${v.id}" class="${d===today?'today':''}"><td class="c-date">Dag ${dagNr[v.id]}${infoI(upl[v.audio] || v.created_at)}</td>${kanaalCell(v.soort)}
         <td class="c-video ${big?'b':''}"><div class="vrow">${titleCell('hub_videos', v)}${heartCtl(v)}${songCtl(v) || '<span class="songctl ph"></span>'}</div></td><td class="c-niche">${nicheCtl(v)}</td><td class="c-len">${esc(v.lengte)}</td>
         <td class="c-status">${statusTag('hub_videos', v)}</td>${moreCell('hub_videos', v, {kanaal: kanalen(v.soort).join(', '), lenLabel:'Lengte', len: v.lengte})}</tr>`; });
     const sRows = sep((sh||[]).map(x => ({ d: x.datum, x })), 5, ({ d, x }) =>
@@ -518,7 +518,7 @@ const TABS = {
     const note = '<p class="muted">Titel met ↗ = staat op YouTube: klik om hem in Studio te openen. Status wijzigen: klik op het label, typ, Enter. YouTube-ID plakken: via ⋯ achter de regel.</p>';
     $('#view').innerHTML = MODE === 'shorts'
       ? bar('Shorts — 3 per dag') + kpiHtml + `<table><tr><th>Datum</th><th>Tijd</th><th style="text-align:center">Kanaal</th><th>Short</th><th>Status</th></tr>${sRows}</table>` + note
-      : bar("Planning lange video's (18:00 NL)") + kpiHtml + `<table><tr><th>Datum</th><th style="text-align:center">Kanaal</th><th>Video</th><th>Stijl</th><th>Lengte</th><th style="position:relative">Status<button class="shufbtn" id="shufBtn" title="Shuffle: alles in willekeurige volgorde afspelen"><svg viewBox="0 0 24 24"><path d="M17 3l4 4-4 4V8h-2.6l-2.9 3.9-1.25-1.67L13.4 6H17V3zM3 6h4.6l8.8 12H17v-3l4 4-4 4v-3h-3.6L5.6 8H3V6zm0 10h2.6l2.15-2.87L9 14.8 7.4 18H3v-2z"/></svg></button></th></tr>${vRows}</table>` + note;
+      : bar("Planning: dag 1–60") + kpiHtml + `<table><tr><th>Dag</th><th style="text-align:center">Kanaal</th><th>Video</th><th>Stijl</th><th>Lengte</th><th style="position:relative">Status<button class="shufbtn" id="shufBtn" title="Shuffle: alles in willekeurige volgorde afspelen"><svg viewBox="0 0 24 24"><path d="M17 3l4 4-4 4V8h-2.6l-2.9 3.9-1.25-1.67L13.4 6H17V3zM3 6h4.6l8.8 12H17v-3l4 4-4 4v-3h-3.6L5.6 8H3V6zm0 10h2.6l2.15-2.87L9 14.8 7.4 18H3v-2z"/></svg></button></th></tr>${vRows}</table>` + note;
     let selecting = false, sel = [];
     const tabel = MODE === 'shorts' ? 'hub_shorts' : 'hub_videos';
     const upd = () => { $('#swapBtn').textContent = `Omwisselen (${sel.length}/2)`; $('#swapBtn').disabled = sel.length !== 2; };
